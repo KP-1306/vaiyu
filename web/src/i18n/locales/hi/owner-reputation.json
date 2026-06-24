@@ -1,0 +1,63 @@
+{
+  "title": "रेपुटेशन रडार",
+  "subtitle": "रिव्यू को एक ऑपरेशनल KPI बनाएं। जोखिम वाले ठहराव देखें और गेस्ट के नाख़ुश जाने से पहले मामला सुलझाएं।",
+  "viewingData": " आप {{name}} का डेटा देख रहे हैं।",
+  "relatedViews": "संबंधित व्यू:",
+  "revenueLink": "रेवेन्यू और ऑक्यूपेंसी",
+  "filters": {
+    "fromCheckin": "से (चेक-इन)",
+    "toCheckin": "तक (चेक-इन)",
+    "stayStatus": "ठहराव स्थिति",
+    "riskBand": "जोखिम बैंड",
+    "searchLabel": "गेस्ट / बुकिंग खोजें",
+    "searchPlaceholder": "जैसे Bisht / BK123"
+  },
+  "all": "सभी",
+  "status": {
+    "active": "सक्रिय",
+    "upcoming": "आगामी",
+    "completed": "पूर्ण",
+    "unknown": "अज्ञात"
+  },
+  "risk": {
+    "red": "लाल",
+    "amber": "अंबर",
+    "green": "हरा",
+    "na": "लागू नहीं"
+  },
+  "state": {
+    "loading": "लोड हो रहा है…",
+    "noStaysPeriod": "इस अवधि के लिए कोई ठहराव नहीं मिला।",
+    "noStaysFilter": "मौजूदा फ़िल्टर से कोई ठहराव मेल नहीं खाता।"
+  },
+  "error": {
+    "missingSlug": "URL में होटल पहचान गायब है।",
+    "hotelLoad": "होटल विवरण लोड नहीं हो सका।",
+    "hotelNotFound": "इस स्लग के लिए होटल नहीं मिला।",
+    "dataLoad": "रेपुटेशन रडार डेटा लोड नहीं हो सका।"
+  },
+  "tiles": {
+    "atRiskActive": "जोखिम वाले सक्रिय ठहराव",
+    "atRiskActiveDesc": "सक्रिय गेस्ट जो खराब रिव्यू की ओर बढ़ सकते हैं।",
+    "atRiskUpcoming": "जोखिम वाले आगामी ठहराव",
+    "atRiskUpcomingDesc": "शुरुआती फ्रिक्शन संकेतों वाले नए आगमन।",
+    "lowRatings": "कम रेटिंग (30 दिन)",
+    "lowRatingsDesc": "पिछले 30 दिनों में 3★ या उससे कम रेटिंग वाले पूर्ण ठहराव।",
+    "avgRating": "औसत रेटिंग (30 दिन)",
+    "avgRatingDesc": "पिछले महीने मिले सभी रिव्यू के आधार पर।"
+  },
+  "table": {
+    "heading": "ठहराव और जोखिम विवरण",
+    "subheading": "हर पंक्ति एक ठहराव है। पहले लाल और अंबर पंक्तियों पर काम करें।",
+    "colGuestBooking": "गेस्ट / बुकिंग",
+    "colStay": "ठहराव",
+    "colStatus": "स्थिति",
+    "colRisk": "जोखिम",
+    "colTickets": "टिकट",
+    "colReview": "रिव्यू",
+    "score": "स्कोर {{score}}",
+    "ticketsTotal": "{{count}} कुल",
+    "ticketsBreakdown": "{{open}} खुले · {{guest}} गेस्ट से",
+    "noReview": "कोई रिव्यू नहीं"
+  }
+}

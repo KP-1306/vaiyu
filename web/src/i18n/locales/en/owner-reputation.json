@@ -1,0 +1,63 @@
+{
+  "title": "Reputation Radar",
+  "subtitle": "Turn reviews into an operational KPI. See at-risk stays and close the loop before guests leave unhappy.",
+  "viewingData": " You’re viewing data for {{name}}.",
+  "relatedViews": "Related views:",
+  "revenueLink": "Revenue & occupancy",
+  "filters": {
+    "fromCheckin": "From (check-in)",
+    "toCheckin": "To (check-in)",
+    "stayStatus": "Stay status",
+    "riskBand": "Risk band",
+    "searchLabel": "Search guest / booking",
+    "searchPlaceholder": "e.g. Bisht / BK123"
+  },
+  "all": "All",
+  "status": {
+    "active": "Active",
+    "upcoming": "Upcoming",
+    "completed": "Completed",
+    "unknown": "Unknown"
+  },
+  "risk": {
+    "red": "Red",
+    "amber": "Amber",
+    "green": "Green",
+    "na": "N/A"
+  },
+  "state": {
+    "loading": "Loading…",
+    "noStaysPeriod": "No stays found for this period.",
+    "noStaysFilter": "No stays match the current filters."
+  },
+  "error": {
+    "missingSlug": "Missing hotel identifier in URL.",
+    "hotelLoad": "Failed to load hotel details.",
+    "hotelNotFound": "Hotel not found for this slug.",
+    "dataLoad": "Failed to load reputation radar data."
+  },
+  "tiles": {
+    "atRiskActive": "At-risk active stays",
+    "atRiskActiveDesc": "Active guests who might be heading towards a bad review.",
+    "atRiskUpcoming": "At-risk upcoming stays",
+    "atRiskUpcomingDesc": "New arrivals with early friction signals.",
+    "lowRatings": "Low ratings (30 days)",
+    "lowRatingsDesc": "Completed stays rated 3★ or below in the last 30 days.",
+    "avgRating": "Avg rating (30 days)",
+    "avgRatingDesc": "Across all reviews received in the last month."
+  },
+  "table": {
+    "heading": "Stays & risk detail",
+    "subheading": "Each row is one stay. Work the red & amber rows first.",
+    "colGuestBooking": "Guest / Booking",
+    "colStay": "Stay",
+    "colStatus": "Status",
+    "colRisk": "Risk",
+    "colTickets": "Tickets",
+    "colReview": "Review",
+    "score": "Score {{score}}",
+    "ticketsTotal": "{{count}} total",
+    "ticketsBreakdown": "{{open}} open · {{guest}} from guest",
+    "noReview": "No review"
+  }
+}

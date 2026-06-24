@@ -26,6 +26,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { useOwnerT, useOwnerCommonT, useOwnerLocale } from "../i18n/useOwnerT";
 
 type Hotel = { id: string; name: string; slug: string };
 
@@ -62,7 +63,7 @@ function parseDate(value: string | null | undefined): Date | null {
 }
 
 function riskBandClass(band: RiskBand): string {
-  const base = "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium";
+  const base = "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium uppercase";
   switch (band) {
     case "red":
       return `${base} bg-rose-50 text-rose-700 ring-1 ring-rose-200`;
@@ -76,7 +77,7 @@ function riskBandClass(band: RiskBand): string {
 }
 
 function statusBadgeClass(status: StayStatus): string {
-  const base = "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium";
+  const base = "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium uppercase";
   switch (status) {
     case "active":
       return `${base} bg-blue-50 text-blue-700 ring-1 ring-blue-200`;
@@ -89,41 +90,22 @@ function statusBadgeClass(status: StayStatus): string {
   }
 }
 
-function formatDateRange(checkIn: string | null, checkOut: string | null): string {
+function formatDateRange(checkIn: string | null, checkOut: string | null, locale: string): string {
   const dIn = parseDate(checkIn);
   const dOut = parseDate(checkOut);
+  const opts = { day: "2-digit", month: "short" } as const;
   if (!dIn && !dOut) return "—";
-  if (dIn && !dOut) {
-    return dIn.toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-    });
-  }
-  if (!dIn && dOut) {
-    return dOut.toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-    });
-  }
+  if (dIn && !dOut) return dIn.toLocaleDateString(locale, opts);
+  if (!dIn && dOut) return dOut.toLocaleDateString(locale, opts);
   if (!dIn || !dOut) return "—";
-  const inStr = dIn.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-  });
-  const outStr = dOut.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-  });
-  return `${inStr} → ${outStr}`;
-}
-
-function formatRating(rating: number | null): string {
-  if (rating == null || Number.isNaN(rating)) return "No review";
-  return `${rating.toFixed(1)} ★`;
+  return `${dIn.toLocaleDateString(locale, opts)} → ${dOut.toLocaleDateString(locale, opts)}`;
 }
 
 export default function OwnerReputation() {
   const { slug } = useParams<{ slug: string }>();
+  const t = useOwnerT("owner-reputation");
+  const tc = useOwnerCommonT();
+  const locale = useOwnerLocale();
   const [hotel, setHotel] = useState<Hotel | null>(null);
   const [rows, setRows] = useState<ReputationRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -146,7 +128,7 @@ export default function OwnerReputation() {
 
     (async () => {
       if (!slug) {
-        setError("Missing hotel identifier in URL.");
+        setError(t("error.missingSlug", "Missing hotel identifier in URL."));
         setLoading(false);
         return;
       }
@@ -164,7 +146,7 @@ export default function OwnerReputation() {
 
       if (hotelErr) {
         console.error(hotelErr);
-        setError("Failed to load hotel details.");
+        setError(t("error.hotelLoad", "Failed to load hotel details."));
         setHotel(null);
         setRows([]);
         setLoading(false);
@@ -174,7 +156,7 @@ export default function OwnerReputation() {
       setHotel(h || null);
       const hotelId = h?.id;
       if (!hotelId) {
-        setError("Hotel not found for this slug.");
+        setError(t("error.hotelNotFound", "Hotel not found for this slug."));
         setRows([]);
         setLoading(false);
         return;
@@ -194,7 +176,7 @@ export default function OwnerReputation() {
 
       if (repErr) {
         console.error(repErr);
-        setError("Failed to load reputation radar data.");
+        setError(t("error.dataLoad", "Failed to load reputation radar data."));
         setRows([]);
       } else {
         setRows((data || []) as ReputationRow[]);
@@ -279,21 +261,20 @@ export default function OwnerReputation() {
       {/* Header */}
       <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-semibold">Reputation Radar</h1>
+          <h1 className="text-xl font-semibold">{t("title", "Reputation Radar")}</h1>
           <p className="text-sm text-muted-foreground">
-            Turn reviews into an operational KPI. See at-risk stays and close
-            the loop before guests leave unhappy.
-            {hotel ? ` You’re viewing data for ${hotel.name}.` : ""}
+            {t("subtitle", "Turn reviews into an operational KPI. See at-risk stays and close the loop before guests leave unhappy.")}
+            {hotel ? t("viewingData", " You’re viewing data for {{name}}.", { name: hotel.name }) : ""}
           </p>
         </div>
         {slug && (
           <div className="flex flex-wrap items-center gap-2 text-xs">
-            <span className="text-muted-foreground">Related views:</span>
+            <span className="text-muted-foreground">{t("relatedViews", "Related views:")}</span>
             <Link
               to={`/owner/${encodeURIComponent(slug)}/revenue`}
               className="btn btn-light"
             >
-              Revenue &amp; occupancy
+              {t("revenueLink", "Revenue & occupancy")}
             </Link>
           </div>
         )}
@@ -304,7 +285,7 @@ export default function OwnerReputation() {
         <div className="flex flex-wrap items-end gap-3">
           <div>
             <label className="block mb-1 text-xs text-muted-foreground">
-              From (check-in)
+              {t("filters.fromCheckin", "From (check-in)")}
             </label>
             <input
               type="date"
@@ -315,7 +296,7 @@ export default function OwnerReputation() {
           </div>
           <div>
             <label className="block mb-1 text-xs text-muted-foreground">
-              To (check-in)
+              {t("filters.toCheckin", "To (check-in)")}
             </label>
             <input
               type="date"
@@ -327,7 +308,7 @@ export default function OwnerReputation() {
 
           <div>
             <label className="block mb-1 text-xs text-muted-foreground">
-              Stay status
+              {t("filters.stayStatus", "Stay status")}
             </label>
             <select
               value={statusFilter}
@@ -336,16 +317,16 @@ export default function OwnerReputation() {
               }
               className="border rounded px-2 py-1 text-sm"
             >
-              <option value="all">All</option>
-              <option value="active">Active</option>
-              <option value="upcoming">Upcoming</option>
-              <option value="completed">Completed</option>
+              <option value="all">{t("all", "All")}</option>
+              <option value="active">{t("status.active", "Active")}</option>
+              <option value="upcoming">{t("status.upcoming", "Upcoming")}</option>
+              <option value="completed">{t("status.completed", "Completed")}</option>
             </select>
           </div>
 
           <div>
             <label className="block mb-1 text-xs text-muted-foreground">
-              Risk band
+              {t("filters.riskBand", "Risk band")}
             </label>
             <select
               value={riskFilter}
@@ -354,22 +335,22 @@ export default function OwnerReputation() {
               }
               className="border rounded px-2 py-1 text-sm"
             >
-              <option value="all">All</option>
-              <option value="red">Red</option>
-              <option value="amber">Amber</option>
-              <option value="green">Green</option>
+              <option value="all">{t("all", "All")}</option>
+              <option value="red">{t("risk.red", "Red")}</option>
+              <option value="amber">{t("risk.amber", "Amber")}</option>
+              <option value="green">{t("risk.green", "Green")}</option>
             </select>
           </div>
 
           <div className="flex-1 min-w-[160px]">
             <label className="block mb-1 text-xs text-muted-foreground">
-              Search guest / booking
+              {t("filters.searchLabel", "Search guest / booking")}
             </label>
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="e.g. Bisht / BK123"
+              placeholder={t("filters.searchPlaceholder", "e.g. Bisht / BK123")}
               className="w-full border rounded px-2 py-1 text-sm"
             />
           </div>
@@ -379,54 +360,54 @@ export default function OwnerReputation() {
       {/* Summary tiles */}
       <section className="rounded-xl border bg-white p-4">
         {loading ? (
-          <div className="text-sm text-muted-foreground">Loading…</div>
+          <div className="text-sm text-muted-foreground">{t("state.loading", "Loading…")}</div>
         ) : error ? (
           <div className="text-sm text-red-500">{error}</div>
         ) : rows.length === 0 ? (
           <div className="text-sm text-muted-foreground">
-            No stays found for this period.
+            {t("state.noStaysPeriod", "No stays found for this period.")}
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className="rounded-lg border border-slate-100 bg-slate-50 px-4 py-3">
               <div className="text-xs font-medium text-slate-600">
-                At-risk active stays
+                {t("tiles.atRiskActive", "At-risk active stays")}
               </div>
               <div className="mt-1 text-2xl font-semibold">
                 {summary.atRiskActive}
               </div>
               <div className="mt-1 text-[11px] text-slate-500">
-                Active guests who might be heading towards a bad review.
+                {t("tiles.atRiskActiveDesc", "Active guests who might be heading towards a bad review.")}
               </div>
             </div>
 
             <div className="rounded-lg border border-slate-100 bg-white px-4 py-3">
               <div className="text-xs font-medium text-slate-600">
-                At-risk upcoming stays
+                {t("tiles.atRiskUpcoming", "At-risk upcoming stays")}
               </div>
               <div className="mt-1 text-2xl font-semibold">
                 {summary.atRiskUpcoming}
               </div>
               <div className="mt-1 text-[11px] text-slate-500">
-                New arrivals with early friction signals.
+                {t("tiles.atRiskUpcomingDesc", "New arrivals with early friction signals.")}
               </div>
             </div>
 
             <div className="rounded-lg border border-slate-100 bg-white px-4 py-3">
               <div className="text-xs font-medium text-slate-600">
-                Low ratings (30 days)
+                {t("tiles.lowRatings", "Low ratings (30 days)")}
               </div>
               <div className="mt-1 text-2xl font-semibold">
                 {summary.lowRating30d}
               </div>
               <div className="mt-1 text-[11px] text-slate-500">
-                Completed stays rated 3★ or below in the last 30 days.
+                {t("tiles.lowRatingsDesc", "Completed stays rated 3★ or below in the last 30 days.")}
               </div>
             </div>
 
             <div className="rounded-lg border border-slate-100 bg-white px-4 py-3">
               <div className="text-xs font-medium text-slate-600">
-                Avg rating (30 days)
+                {t("tiles.avgRating", "Avg rating (30 days)")}
               </div>
               <div className="mt-1 text-2xl font-semibold">
                 {summary.avgRating30d == null
@@ -434,7 +415,7 @@ export default function OwnerReputation() {
                   : `${summary.avgRating30d.toFixed(2)} ★`}
               </div>
               <div className="mt-1 text-[11px] text-slate-500">
-                Across all reviews received in the last month.
+                {t("tiles.avgRatingDesc", "Across all reviews received in the last month.")}
               </div>
             </div>
           </div>
@@ -446,27 +427,27 @@ export default function OwnerReputation() {
         <section className="rounded-xl border bg-white p-4">
           <div className="flex items-center justify-between mb-2">
             <div>
-              <h2 className="text-sm font-semibold">Stays &amp; risk detail</h2>
+              <h2 className="text-sm font-semibold">{t("table.heading", "Stays & risk detail")}</h2>
               <p className="text-xs text-muted-foreground">
-                Each row is one stay. Work the red &amp; amber rows first.
+                {t("table.subheading", "Each row is one stay. Work the red & amber rows first.")}
               </p>
             </div>
           </div>
           {filteredRows.length === 0 ? (
             <div className="text-sm text-muted-foreground">
-              No stays match the current filters.
+              {t("state.noStaysFilter", "No stays match the current filters.")}
             </div>
           ) : (
             <div className="-mx-4 -mb-4 overflow-x-auto">
               <table className="min-w-full border-t text-xs">
                 <thead className="bg-slate-50">
                   <tr className="text-left text-[11px] uppercase tracking-wide text-slate-500">
-                    <th className="px-4 py-2">Guest / Booking</th>
-                    <th className="px-4 py-2">Stay</th>
-                    <th className="px-4 py-2">Status</th>
-                    <th className="px-4 py-2">Risk</th>
-                    <th className="px-4 py-2">Tickets</th>
-                    <th className="px-4 py-2">Review</th>
+                    <th className="px-4 py-2">{t("table.colGuestBooking", "Guest / Booking")}</th>
+                    <th className="px-4 py-2">{t("table.colStay", "Stay")}</th>
+                    <th className="px-4 py-2">{t("table.colStatus", "Status")}</th>
+                    <th className="px-4 py-2">{t("table.colRisk", "Risk")}</th>
+                    <th className="px-4 py-2">{t("table.colTickets", "Tickets")}</th>
+                    <th className="px-4 py-2">{t("table.colReview", "Review")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -477,7 +458,7 @@ export default function OwnerReputation() {
                     >
                       <td className="px-4 py-2 align-top">
                         <div className="font-medium text-slate-800">
-                          {r.guest_name || "Guest"}
+                          {r.guest_name || tc("terms.guest", "Guest")}
                         </div>
                         <div className="text-[11px] text-slate-500">
                           {r.booking_code || "—"}
@@ -485,50 +466,48 @@ export default function OwnerReputation() {
                       </td>
                       <td className="px-4 py-2 align-top">
                         <div className="text-xs text-slate-800">
-                          {formatDateRange(r.check_in, r.check_out)}
+                          {formatDateRange(r.check_in, r.check_out, locale)}
                         </div>
                       </td>
                       <td className="px-4 py-2 align-top">
                         <span className={statusBadgeClass(r.stay_status)}>
-                          {String(r.stay_status || "unknown").toUpperCase()}
+                          {t(`status.${String(r.stay_status || "unknown").toLowerCase()}`, String(r.stay_status || "unknown"))}
                         </span>
                       </td>
                       <td className="px-4 py-2 align-top">
                         <div className="flex flex-col gap-1">
                           <span className={riskBandClass(r.risk_band)}>
                             {r.risk_band
-                              ? String(r.risk_band).toUpperCase()
-                              : "N/A"}
+                              ? t(`risk.${String(r.risk_band).toLowerCase()}`, String(r.risk_band))
+                              : t("risk.na", "N/A")}
                           </span>
                           {r.risk_score != null && (
                             <span className="text-[11px] text-slate-500">
-                              Score {r.risk_score}
+                              {t("table.score", "Score {{score}}", { score: r.risk_score })}
                             </span>
                           )}
                         </div>
                       </td>
                       <td className="px-4 py-2 align-top">
                         <div className="text-xs text-slate-800">
-                          {r.tickets_total ?? 0} total
+                          {t("table.ticketsTotal", "{{count}} total", { count: r.tickets_total ?? 0 })}
                         </div>
                         <div className="text-[11px] text-slate-500">
-                          {r.open_tickets ?? 0} open ·{" "}
-                          {r.guest_tickets ?? 0} from guest
+                          {t("table.ticketsBreakdown", "{{open}} open · {{guest}} from guest", { open: r.open_tickets ?? 0, guest: r.guest_tickets ?? 0 })}
                         </div>
                       </td>
                       <td className="px-4 py-2 align-top">
                         <div className="text-xs text-slate-800">
-                          {formatRating(r.review_rating)}
+                          {r.review_rating == null || Number.isNaN(r.review_rating)
+                            ? t("table.noReview", "No review")
+                            : `${r.review_rating.toFixed(1)} ★`}
                         </div>
                         {r.review_submitted_at && (
                           <div className="text-[11px] text-slate-500">
-                            {parseDate(r.review_submitted_at)?.toLocaleDateString(
-                              "en-IN",
-                              {
-                                day: "2-digit",
-                                month: "short",
-                              }
-                            )}
+                            {parseDate(r.review_submitted_at)?.toLocaleDateString(locale, {
+                              day: "2-digit",
+                              month: "short",
+                            })}
                           </div>
                         )}
                       </td>

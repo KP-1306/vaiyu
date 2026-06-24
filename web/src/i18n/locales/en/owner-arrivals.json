@@ -8,8 +8,14 @@
     "sendReminder": "Send Reminder",
     "bulkCheckin": "Bulk Check-In"
   },
-  "dateHeader": { "before": "Before {{date}}", "custom": "Custom Range", "all": "All Dates" },
-  "search": { "main": "Search guest or booking code..." },
+  "dateHeader": {
+    "before": "Before {{date}}",
+    "custom": "Custom Range",
+    "all": "All Dates"
+  },
+  "search": {
+    "main": "Search guest or booking code..."
+  },
   "dateFilter": {
     "today": "Today ({{date}})",
     "tomorrow": "Tomorrow ({{date}})",
@@ -93,7 +99,11 @@
     "noMatchBody": "We couldn’t find any results matching your current filters or search criteria.",
     "clearAll": "Clear All Filters"
   },
-  "pagination": { "showing": "Showing {{from}} - {{to}} of {{total}}", "prev": "Prev", "next": "Next" },
+  "pagination": {
+    "showing": "Showing {{from}} - {{to}} of {{total}}",
+    "prev": "Prev",
+    "next": "Next"
+  },
   "checkoutAttention": {
     "title": "Checkout attention",
     "alwaysOn": "Always-on · independent of date filter",
@@ -166,7 +176,9 @@
     "forceCheckout": "Force Checkout",
     "okay": "Okay"
   },
-  "fallback": { "unassigned": "Unassigned" },
+  "fallback": {
+    "unassigned": "Unassigned"
+  },
   "phase2": {
     "title": "Phase 2 Incoming",
     "bodyPre": "This advanced automated feature is currently under high-precision development and will be available in the ",
@@ -174,5 +186,42 @@
     "bodyPost": ".",
     "understood": "Understood",
     "roadmap": "Vaiyu Enterprise Suite • v2.0 Roadmap"
+  },
+  "guestDrawer": {
+    "expected": "Expected",
+    "labelStay": "Stay",
+    "labelRooms": "Rooms",
+    "labelGuests": "Guests",
+    "labelPhone": "Phone",
+    "labelEmail": "Email",
+    "labelId": "ID Document",
+    "labelSpecialRequests": "Special Requests",
+    "labelBalance": "Balance",
+    "nights_one": "{{count}} Night",
+    "nights_other": "{{count}} Nights",
+    "unassigned": "Unassigned",
+    "roomsCount_one": "{{count}} room",
+    "roomsCount_other": "{{count}} rooms",
+    "adults_one": "{{count}} Adult",
+    "adults_other": "{{count}} Adults",
+    "children_one": "{{count}} Child",
+    "children_other": "{{count}} Children",
+    "loading": "Loading…",
+    "docPassport": "Passport",
+    "docAadhaar": "Aadhaar",
+    "docDrivingLicense": "Driving Licence",
+    "docOther": "Other ID",
+    "verified": "Verified",
+    "rejected": "Rejected",
+    "pending": "Pending",
+    "noId": "No ID on file",
+    "amountDue": "₹{{amount}} due",
+    "settled": "Settled",
+    "amountPaid": "₹{{amount}} paid",
+    "collect": "Collect",
+    "folio": "Folio",
+    "checkInGuest": "Check-In Guest",
+    "approveCheckout": "Approve Checkout",
+    "checkoutGuest": "Checkout Guest"
   }
 }

@@ -8,8 +8,14 @@
     "sendReminder": "रिमाइंडर भेजें",
     "bulkCheckin": "बल्क चेक-इन"
   },
-  "dateHeader": { "before": "{{date}} से पहले", "custom": "कस्टम रेंज", "all": "सभी तारीखें" },
-  "search": { "main": "गेस्ट या बुकिंग कोड खोजें..." },
+  "dateHeader": {
+    "before": "{{date}} से पहले",
+    "custom": "कस्टम रेंज",
+    "all": "सभी तारीखें"
+  },
+  "search": {
+    "main": "गेस्ट या बुकिंग कोड खोजें..."
+  },
   "dateFilter": {
     "today": "आज ({{date}})",
     "tomorrow": "कल ({{date}})",
@@ -93,7 +99,11 @@
     "noMatchBody": "आपके मौजूदा फ़िल्टर या सर्च से मेल खाता कोई परिणाम नहीं मिला।",
     "clearAll": "सभी फ़िल्टर हटाएँ"
   },
-  "pagination": { "showing": "{{total}} में से {{from}} - {{to}} दिख रहे हैं", "prev": "पिछला", "next": "अगला" },
+  "pagination": {
+    "showing": "{{total}} में से {{from}} - {{to}} दिख रहे हैं",
+    "prev": "पिछला",
+    "next": "अगला"
+  },
   "checkoutAttention": {
     "title": "चेकआउट ध्यान",
     "alwaysOn": "हमेशा चालू · तारीख फ़िल्टर से स्वतंत्र",
@@ -166,7 +176,9 @@
     "forceCheckout": "फोर्स चेकआउट",
     "okay": "ठीक है"
   },
-  "fallback": { "unassigned": "अनअसाइन्ड" },
+  "fallback": {
+    "unassigned": "अनअसाइन्ड"
+  },
   "phase2": {
     "title": "फ़ेज़ 2 आ रहा है",
     "bodyPre": "यह एडवांस्ड ऑटोमेटेड फ़ीचर अभी उच्च-परिशुद्धता विकास में है और ",
@@ -174,5 +186,42 @@
     "bodyPost": " में उपलब्ध होगा।",
     "understood": "समझ गया",
     "roadmap": "Vaiyu एंटरप्राइज़ सूट • v2.0 रोडमैप"
+  },
+  "guestDrawer": {
+    "expected": "अपेक्षित",
+    "labelStay": "ठहराव",
+    "labelRooms": "रूम",
+    "labelGuests": "गेस्ट",
+    "labelPhone": "फ़ोन",
+    "labelEmail": "ईमेल",
+    "labelId": "ID दस्तावेज़",
+    "labelSpecialRequests": "विशेष अनुरोध",
+    "labelBalance": "बैलेंस",
+    "nights_one": "{{count}} रात",
+    "nights_other": "{{count}} रातें",
+    "unassigned": "अनिर्धारित",
+    "roomsCount_one": "{{count}} रूम",
+    "roomsCount_other": "{{count}} रूम",
+    "adults_one": "{{count}} वयस्क",
+    "adults_other": "{{count}} वयस्क",
+    "children_one": "{{count}} बच्चा",
+    "children_other": "{{count}} बच्चे",
+    "loading": "लोड हो रहा है…",
+    "docPassport": "पासपोर्ट",
+    "docAadhaar": "आधार",
+    "docDrivingLicense": "ड्राइविंग लाइसेंस",
+    "docOther": "अन्य ID",
+    "verified": "सत्यापित",
+    "rejected": "अस्वीकृत",
+    "pending": "लंबित",
+    "noId": "कोई ID दर्ज नहीं",
+    "amountDue": "₹{{amount}} बकाया",
+    "settled": "चुकता",
+    "amountPaid": "₹{{amount}} भुगतान",
+    "collect": "वसूलें",
+    "folio": "फोलियो",
+    "checkInGuest": "गेस्ट चेक-इन करें",
+    "approveCheckout": "चेक-आउट स्वीकारें",
+    "checkoutGuest": "गेस्ट चेक-आउट करें"
   }
 }

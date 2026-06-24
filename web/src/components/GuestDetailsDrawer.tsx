@@ -30,6 +30,7 @@ import {
 import { supabase } from "../lib/supabase";
 import { initialsOf } from "../utils/initials";
 import { computeCheckoutState } from "../utils/checkoutState";
+import { useOwnerT, useOwnerLocale } from "../i18n/useOwnerT";
 
 interface GuestDetailsDrawerProps {
     isOpen: boolean;
@@ -59,24 +60,27 @@ type IdProof = {
     verification?: "pending" | "verified" | "rejected" | null;
 };
 
-const DOC_TYPE_LABELS: Record<string, string> = {
-    passport: "Passport",
-    aadhaar: "Aadhaar",
-    driving_license: "Driving Licence",
-    other: "Other ID",
+/** Doc-type → i18n key (+ English fallback). Resolved via t() at render so the
+ *  literal type code (passport/aadhaar/…) is never translated, only the label. */
+const DOC_TYPE_LABELS: Record<string, { key: string; en: string }> = {
+    passport: { key: "guestDrawer.docPassport", en: "Passport" },
+    aadhaar: { key: "guestDrawer.docAadhaar", en: "Aadhaar" },
+    driving_license: { key: "guestDrawer.docDrivingLicense", en: "Driving Licence" },
+    other: { key: "guestDrawer.docOther", en: "Other ID" },
 };
 
 /** Compact operational-status pill mirroring the board's StatusBadge, restyled
- *  for the dark drawer. Display-only label map (business logic lives elsewhere). */
-const STATUS_META: Record<string, { label: string; cls: string }> = {
-    CHECKED_IN: { label: "Checked In", cls: "bg-indigo-500/15 text-indigo-300 border-indigo-500/30" },
-    CHECKOUT_REQUESTED: { label: "Checkout Requested", cls: "bg-amber-500/15 text-amber-300 border-amber-500/30" },
-    PARTIALLY_ARRIVED: { label: "Partially Arrived", cls: "bg-orange-400/15 text-orange-300 border-orange-400/30" },
-    WAITING_HOUSEKEEPING: { label: "Waiting Housekeeping", cls: "bg-blue-500/15 text-blue-300 border-blue-500/30" },
-    WAITING_ROOM_ASSIGNMENT: { label: "Waiting Allocation", cls: "bg-yellow-500/15 text-yellow-300 border-yellow-500/30" },
-    READY_TO_CHECKIN: { label: "Ready", cls: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" },
-    EXPECTED: { label: "Expected", cls: "bg-slate-500/15 text-slate-300 border-slate-500/30" },
-    NO_ROOMS: { label: "No Rooms", cls: "bg-red-500/15 text-red-300 border-red-500/30" },
+ *  for the dark drawer. Labels reuse the board's owner-arrivals statusBadge keys
+ *  (consistency); business logic lives elsewhere — this is display-only. */
+const STATUS_META: Record<string, { key: string; en: string; cls: string }> = {
+    CHECKED_IN: { key: "statusBadge.checkedIn", en: "Checked In", cls: "bg-indigo-500/15 text-indigo-300 border-indigo-500/30" },
+    CHECKOUT_REQUESTED: { key: "statusBadge.checkoutRequested", en: "Checkout Requested", cls: "bg-amber-500/15 text-amber-300 border-amber-500/30" },
+    PARTIALLY_ARRIVED: { key: "statusBadge.partiallyArrived", en: "Partially Arrived", cls: "bg-orange-400/15 text-orange-300 border-orange-400/30" },
+    WAITING_HOUSEKEEPING: { key: "statusBadge.waitingHousekeeping", en: "Waiting Housekeeping", cls: "bg-blue-500/15 text-blue-300 border-blue-500/30" },
+    WAITING_ROOM_ASSIGNMENT: { key: "statusBadge.waitingAllocation", en: "Waiting Allocation", cls: "bg-yellow-500/15 text-yellow-300 border-yellow-500/30" },
+    READY_TO_CHECKIN: { key: "statusBadge.ready", en: "Ready", cls: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" },
+    EXPECTED: { key: "guestDrawer.expected", en: "Expected", cls: "bg-slate-500/15 text-slate-300 border-slate-500/30" },
+    NO_ROOMS: { key: "statusBadge.noRooms", en: "No Rooms", cls: "bg-red-500/15 text-red-300 border-red-500/30" },
 };
 
 /** Label/value line; renders an em-dash when the value is missing. */
@@ -92,6 +96,8 @@ const DetailLine = ({ icon, label, children }: { icon: ReactNode; label: string;
 
 export default function GuestDetailsDrawer({ isOpen, onClose, arrival, onOpenFolio, onCheckout }: GuestDetailsDrawerProps) {
     const navigate = useNavigate();
+    const t = useOwnerT("owner-arrivals");
+    const locale = useOwnerLocale();
     const [details, setDetails] = useState<BookingDetails | null>(null);
     const [idDoc, setIdDoc] = useState<IdProof | null>(null);
     const [loading, setLoading] = useState(false);
@@ -132,7 +138,7 @@ export default function GuestDetailsDrawer({ isOpen, onClose, arrival, onOpenFol
         (new Date(arrival.scheduled_checkout_at).getTime() - new Date(arrival.scheduled_checkin_at).getTime()) / 86_400_000,
     ));
     const fmtDate = (d: string) =>
-        new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+        new Date(d).toLocaleDateString(locale, { day: "numeric", month: "short" });
 
     // Pax: the arrivals view exposes adults_total/children_total; the booking
     // fetch is the fallback for callers passing an older row shape.
@@ -140,7 +146,7 @@ export default function GuestDetailsDrawer({ isOpen, onClose, arrival, onOpenFol
     const children = arrival.children_total ?? details?.children_total ?? null;
     const paxLabel = adults == null
         ? null
-        : `${adults} Adult${adults === 1 ? "" : "s"}${children ? ` · ${children} Child${children === 1 ? "" : "ren"}` : ""}`;
+        : `${t("guestDrawer.adults", "{{count}} Adults", { count: adults })}${children ? ` · ${t("guestDrawer.children", "{{count}} Children", { count: children })}` : ""}`;
 
     const pending = Number(arrival.pending_amount || 0);
     const paid = Number(arrival.paid_amount || 0);
@@ -203,19 +209,23 @@ export default function GuestDetailsDrawer({ isOpen, onClose, arrival, onOpenFol
                             {statusMeta && (
                                 <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider border ${statusMeta.cls}`}>
                                     {arrival.arrival_operational_state === "CHECKED_IN" && <CheckCircle2 className="w-3 h-3" />}
-                                    {statusMeta.label}
+                                    {t(statusMeta.key, statusMeta.en)}
                                 </span>
                             )}
                             {checkout.state === "overdue" && (
                                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider border bg-rose-500/15 text-rose-300 border-rose-500/30">
                                     <AlertCircle className="w-3 h-3" />
-                                    Overdue · {checkout.daysLate >= 1 ? `${checkout.daysLate}d late` : `${checkout.hoursLate}h late`}
+                                    {t("departure.overdue", "Overdue · {{late}}", {
+                                        late: checkout.daysLate >= 1
+                                            ? t("departure.daysLate", "{{count}}d late", { count: checkout.daysLate })
+                                            : t("departure.hoursLate", "{{count}}h late", { count: checkout.hoursLate }),
+                                    })}
                                 </span>
                             )}
                             {checkout.state === "today" && (
                                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider border bg-amber-500/15 text-amber-300 border-amber-500/30">
                                     <LogOut className="w-3 h-3" />
-                                    Departing today
+                                    {t("departure.departingToday", "Departing today")}
                                 </span>
                             )}
                         </div>
@@ -226,20 +236,20 @@ export default function GuestDetailsDrawer({ isOpen, onClose, arrival, onOpenFol
                 <div className="flex-1 px-6 py-4 space-y-5">
                     {/* Stay */}
                     <div className="bg-[#1A130C] rounded-xl border border-orange-900/20 px-4 py-2">
-                        <DetailLine icon={<CalendarDays className="w-4 h-4" />} label="Stay">
-                            {fmtDate(arrival.scheduled_checkin_at)} → {fmtDate(arrival.scheduled_checkout_at)} · {nights} Night{nights === 1 ? "" : "s"}
+                        <DetailLine icon={<CalendarDays className="w-4 h-4" />} label={t("guestDrawer.labelStay", "Stay")}>
+                            {fmtDate(arrival.scheduled_checkin_at)} → {fmtDate(arrival.scheduled_checkout_at)} · {t("guestDrawer.nights", "{{count}} Nights", { count: nights })}
                         </DetailLine>
-                        <DetailLine icon={<BedDouble className="w-4 h-4" />} label="Rooms">
-                            {arrival.room_numbers || "Unassigned"} ({arrival.rooms_total} room{arrival.rooms_total === 1 ? "" : "s"})
+                        <DetailLine icon={<BedDouble className="w-4 h-4" />} label={t("guestDrawer.labelRooms", "Rooms")}>
+                            {arrival.room_numbers || t("guestDrawer.unassigned", "Unassigned")} ({t("guestDrawer.roomsCount", "{{count}} rooms", { count: arrival.rooms_total })})
                         </DetailLine>
-                        <DetailLine icon={<Users className="w-4 h-4" />} label="Guests">
+                        <DetailLine icon={<Users className="w-4 h-4" />} label={t("guestDrawer.labelGuests", "Guests")}>
                             {paxLabel}
                         </DetailLine>
                     </div>
 
                     {/* Contact */}
                     <div className="bg-[#1A130C] rounded-xl border border-orange-900/20 px-4 py-2">
-                        <DetailLine icon={<Phone className="w-4 h-4" />} label="Phone">
+                        <DetailLine icon={<Phone className="w-4 h-4" />} label={t("guestDrawer.labelPhone", "Phone")}>
                             {arrival.phone ? (
                                 <span className="flex items-center gap-3 flex-wrap">
                                     <a href={`tel:${arrival.phone}`} className="text-[#D4A373] hover:text-[#E8BA87] hover:underline">{arrival.phone}</a>
@@ -256,9 +266,9 @@ export default function GuestDetailsDrawer({ isOpen, onClose, arrival, onOpenFol
                                 </span>
                             ) : null}
                         </DetailLine>
-                        <DetailLine icon={<Mail className="w-4 h-4" />} label="Email">
+                        <DetailLine icon={<Mail className="w-4 h-4" />} label={t("guestDrawer.labelEmail", "Email")}>
                             {loading && !details ? (
-                                <span className="text-[#F3E6D0]/30">Loading…</span>
+                                <span className="text-[#F3E6D0]/30">{t("guestDrawer.loading", "Loading…")}</span>
                             ) : details?.email ? (
                                 <a href={`mailto:${details.email}`} className="text-[#D4A373] hover:text-[#E8BA87] hover:underline">{details.email}</a>
                             ) : null}
@@ -267,31 +277,31 @@ export default function GuestDetailsDrawer({ isOpen, onClose, arrival, onOpenFol
 
                     {/* Identity */}
                     <div className="bg-[#1A130C] rounded-xl border border-orange-900/20 px-4 py-2">
-                        <DetailLine icon={<IdCard className="w-4 h-4" />} label="ID Document">
+                        <DetailLine icon={<IdCard className="w-4 h-4" />} label={t("guestDrawer.labelId", "ID Document")}>
                             {loading ? (
-                                <span className="text-[#F3E6D0]/30">Loading…</span>
+                                <span className="text-[#F3E6D0]/30">{t("guestDrawer.loading", "Loading…")}</span>
                             ) : idDoc ? (
                                 <span className="flex items-center gap-2 flex-wrap">
-                                    {DOC_TYPE_LABELS[idDoc.type] ?? idDoc.type}
+                                    {DOC_TYPE_LABELS[idDoc.type] ? t(DOC_TYPE_LABELS[idDoc.type].key, DOC_TYPE_LABELS[idDoc.type].en) : idDoc.type}
                                     {idDoc.number && <span className="font-mono text-[#F3E6D0]/60">{idDoc.number}</span>}
                                     {idDoc.verification === "verified" && (
                                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-                                            <ShieldCheck className="w-3 h-3" /> Verified
+                                            <ShieldCheck className="w-3 h-3" /> {t("guestDrawer.verified", "Verified")}
                                         </span>
                                     )}
                                     {idDoc.verification === "rejected" && (
                                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-rose-500/15 text-rose-300 border border-rose-500/30">
-                                            <ShieldAlert className="w-3 h-3" /> Rejected
+                                            <ShieldAlert className="w-3 h-3" /> {t("guestDrawer.rejected", "Rejected")}
                                         </span>
                                     )}
                                     {(!idDoc.verification || idDoc.verification === "pending") && (
                                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-amber-500/15 text-amber-300 border border-amber-500/30">
-                                            <Clock className="w-3 h-3" /> Pending
+                                            <Clock className="w-3 h-3" /> {t("guestDrawer.pending", "Pending")}
                                         </span>
                                     )}
                                 </span>
                             ) : (
-                                <span className="text-[#F3E6D0]/50">No ID on file</span>
+                                <span className="text-[#F3E6D0]/50">{t("guestDrawer.noId", "No ID on file")}</span>
                             )}
                         </DetailLine>
                     </div>
@@ -299,7 +309,7 @@ export default function GuestDetailsDrawer({ isOpen, onClose, arrival, onOpenFol
                     {/* Special requests */}
                     {details?.special_requests && (
                         <div className="bg-[#1A130C] rounded-xl border border-orange-900/20 px-4 py-2">
-                            <DetailLine icon={<FileText className="w-4 h-4" />} label="Special Requests">
+                            <DetailLine icon={<FileText className="w-4 h-4" />} label={t("guestDrawer.labelSpecialRequests", "Special Requests")}>
                                 {details.special_requests}
                             </DetailLine>
                         </div>
@@ -308,12 +318,12 @@ export default function GuestDetailsDrawer({ isOpen, onClose, arrival, onOpenFol
                     {/* Balance */}
                     <div className="bg-[#1A130C] rounded-xl border border-orange-900/20 px-4 py-3 flex items-center justify-between">
                         <div>
-                            <div className="text-[10px] font-bold uppercase tracking-widest text-[#F3E6D0]/40">Balance</div>
+                            <div className="text-[10px] font-bold uppercase tracking-widest text-[#F3E6D0]/40">{t("guestDrawer.labelBalance", "Balance")}</div>
                             <div className={`text-lg font-bold ${pending > 0 ? "text-[#E65F5C]" : "text-[#78B48B]"}`}>
-                                {pending > 0 ? `₹${pending.toLocaleString("en-IN")} due` : "Settled"}
+                                {pending > 0 ? t("guestDrawer.amountDue", "₹{{amount}} due", { amount: pending.toLocaleString("en-IN") }) : t("guestDrawer.settled", "Settled")}
                             </div>
                             {paid > 0 && (
-                                <div className="text-[11px] text-[#F3E6D0]/40">₹{paid.toLocaleString("en-IN")} paid</div>
+                                <div className="text-[11px] text-[#F3E6D0]/40">{t("guestDrawer.amountPaid", "₹{{amount}} paid", { amount: paid.toLocaleString("en-IN") })}</div>
                             )}
                         </div>
                         {onOpenFolio && (
@@ -321,7 +331,7 @@ export default function GuestDetailsDrawer({ isOpen, onClose, arrival, onOpenFol
                                 onClick={() => onOpenFolio(arrival)}
                                 className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#8C5D35]/30 hover:bg-[#8C5D35]/50 border border-[#D4A373]/40 text-[#E8BA87] text-xs font-bold uppercase tracking-widest transition"
                             >
-                                <Wallet className="w-4 h-4" /> {pending > 0 ? "Collect" : "Folio"}
+                                <Wallet className="w-4 h-4" /> {pending > 0 ? t("guestDrawer.collect", "Collect") : t("guestDrawer.folio", "Folio")}
                             </button>
                         )}
                     </div>
@@ -334,7 +344,7 @@ export default function GuestDetailsDrawer({ isOpen, onClose, arrival, onOpenFol
                             onClick={() => navigate(`/checkin/booking?code=${arrival.booking_code}`)}
                             className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-[#D4A373] to-[#8C5D35] text-[#231A13] text-sm font-black uppercase tracking-widest hover:opacity-90 transition"
                         >
-                            <CheckCircle2 className="w-4 h-4" /> Check-In Guest
+                            <CheckCircle2 className="w-4 h-4" /> {t("guestDrawer.checkInGuest", "Check-In Guest")}
                         </button>
                     </div>
                 )}
@@ -345,7 +355,7 @@ export default function GuestDetailsDrawer({ isOpen, onClose, arrival, onOpenFol
                             className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-[#D4A373] to-[#8C5D35] text-[#231A13] text-sm font-black uppercase tracking-widest hover:opacity-90 transition"
                         >
                             <LogOut className="w-4 h-4" />
-                            {arrival.arrival_operational_state === "CHECKOUT_REQUESTED" ? "Approve Checkout" : "Checkout Guest"}
+                            {arrival.arrival_operational_state === "CHECKOUT_REQUESTED" ? t("guestDrawer.approveCheckout", "Approve Checkout") : t("guestDrawer.checkoutGuest", "Checkout Guest")}
                         </button>
                     </div>
                 )}

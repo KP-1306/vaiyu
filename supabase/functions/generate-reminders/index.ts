@@ -1,7 +1,7 @@
 import { withObs as __withObs } from "../_shared/http-telemetry.ts";
 const __serveObs = (h: (req: Request) => Response | Promise<Response>) => Deno.serve(__withObs("generate-reminders", h));
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { secretKey } from "../_shared/keys.ts";
 
 const corsHeaders = {

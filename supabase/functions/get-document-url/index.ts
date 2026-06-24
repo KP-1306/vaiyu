@@ -1,7 +1,7 @@
 import { serve as __serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { withObs as __withObs } from "../_shared/http-telemetry.ts";
 const serve = (h: (req: Request) => Response | Promise<Response>) => __serve(__withObs("get-document-url", h));
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { allowCors } from "../_shared/cors.ts";
 import { secretKey } from "../_shared/keys.ts";
 

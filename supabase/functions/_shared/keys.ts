@@ -66,10 +66,32 @@ export function publishableKey(): string {
  */
 export function isServiceToken(token: string): boolean {
   if (!token) return false;
+
+  // 1. Exact match to a known key VALUE. Handles the new sb_secret_ caller (opaque
+  //    string, stable) and an exact legacy match.
   const legacy =
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ??
     Deno.env.get("SUPABASE_SERVICE_ROLE") ??
     "";
   const sk = fromJsonEnv("SUPABASE_SECRET_KEYS") ?? "";
-  return (sk !== "" && token === sk) || (legacy !== "" && token === legacy);
+  if ((sk !== "" && token === sk) || (legacy !== "" && token === legacy)) return true;
+
+  // 2. Role-claim path (for a service_role JWT bearer). The exact JWT STRING drifts
+  //    across surfaces after a JWT signing-key migration (the same logical key gets
+  //    re-signed), so a string compare is fragile. Instead accept any JWT whose `role`
+  //    claim is "service_role". SAFE because these functions run with verify_jwt = true,
+  //    so the gateway has ALREADY verified the signature before we read the claim — a
+  //    regular user's JWT (role "authenticated"/"anon") is rejected here.
+  //    NOTE: if a function is moved to verify_jwt = false, it must rely ONLY on the
+  //    exact sb_secret_ match in (1) — this decode path is not signature-checked.
+  try {
+    const part = token.split(".")[1];
+    if (part) {
+      const b64 = part.replace(/-/g, "+").replace(/_/g, "/");
+      const payload = JSON.parse(atob(b64 + "=".repeat((4 - (b64.length % 4)) % 4)));
+      if (payload?.role === "service_role") return true;
+    }
+  } catch { /* not a JWT */ }
+
+  return false;
 }

@@ -92,7 +92,10 @@ async function summary() {
     svcRpc("va_admin_http_failures", { p_minutes: 60 }).catch(() => [] as any[]),
     svcGet("platform_alert_state?select=sent_at&kind=eq.watch&limit=1").catch(() => [] as any[]),
   ]);
-  const cronFails = (cron as any[]).filter((c) => num(c.fails_24h) > 0);
+  // "Failing" = broken RIGHT NOW (last run failed, or overdue), not "failed once
+  // in 24h" — so a recovered blip clears the banner instead of nagging for a day.
+  // overdue is computed in va_admin_cron_health (single source of truth).
+  const cronFails = (cron as any[]).filter((c) => c.last_status === "failed" || c.overdue);
   const issues: { level: "warn" | "bad"; label: string; detail?: string; link?: string }[] = [];
   if (cronFails.length) issues.push({ level: "bad", label: `${cronFails.length} cron job(s) failing`, detail: cronFails.map((c) => c.jobname).join(", ") });
   if (err5xx > 0) issues.push({ level: err5xx >= 10 ? "bad" : "warn", label: `${err5xx} server error(s) (5xx) in 24h` });

@@ -38,10 +38,12 @@ async function countRows(table: string, build: (q: any) => any): Promise<number>
 async function computeIssues(): Promise<Issue[]> {
   const issues: Issue[] = [];
 
-  // cron failures (24h)
+  // cron failures — broken RIGHT NOW (last run failed, or overdue), not "failed
+  // once in 24h", so a recovered blip stops re-emailing. overdue is computed in
+  // va_admin_cron_health (single source of truth, shared with the console banner).
   try {
     const { data } = await svc().rpc("va_admin_cron_health");
-    const failing = (data ?? []).filter((c: any) => Number(c.fails_24h) > 0);
+    const failing = (data ?? []).filter((c: any) => c.last_status === "failed" || c.overdue);
     if (failing.length) issues.push({ level: "bad", label: `${failing.length} cron job(s) failing`, detail: failing.map((c: any) => c.jobname).join(", ") });
   } catch { /* ignore */ }
 

@@ -259,7 +259,7 @@ type Health = {
   series: Array<{ calls: number; err_4xx: number; err_5xx: number }>;
   topFns: { fn: string; calls: number; avg_ms: number }[]; slowest: { fn: string; calls: number; avg_ms: number }[];
   rateLimitHits: number; recent5xx: { fn: string; status: number; path: string; at: string }[];
-  cron: { jobname: string; schedule: string; active: boolean; last_run: string | null; last_status: string | null; runs_24h: number; fails_24h: number }[];
+  cron: { jobname: string; schedule: string; active: boolean; last_run: string | null; last_status: string | null; runs_24h: number; fails_24h: number; overdue: boolean }[];
 };
 const HEALTH_RANGES = [{ label: "24h", hours: 24 }, { label: "7d", hours: 168 }];
 function HealthPanel() {
@@ -300,7 +300,15 @@ function HealthPanel() {
             <ul className="text-sm space-y-1.5">{data.cron.length ? data.cron.map((c) => (
               <li key={c.jobname} className="flex items-center justify-between gap-2">
                 <span className="truncate text-white/80" title={c.schedule}>{c.jobname}</span>
-                <span className={`shrink-0 text-[11px] tabular-nums ${c.fails_24h > 0 ? "text-red-300" : c.last_status === "succeeded" ? "text-emerald-300/80" : "text-white/40"}`}>{c.fails_24h > 0 ? `${c.fails_24h} fail` : c.last_status || "—"}</span>
+                {(() => {
+                  // Red = broken now (last run failed, or overdue). A recovered job
+                  // shows green with the 24h fail count demoted to a quiet footnote.
+                  const broken = c.last_status === "failed" || c.overdue;
+                  const tone = broken ? "text-red-300" : c.last_status === "succeeded" ? "text-emerald-300/80" : "text-white/40";
+                  const label = broken ? (c.overdue && c.last_status !== "failed" ? "overdue" : "failed") : c.last_status || "—";
+                  const note = c.fails_24h > 0 ? ` · ${c.fails_24h} in 24h` : "";
+                  return <span className={`shrink-0 text-[11px] tabular-nums ${tone}`}>{label}{note}</span>;
+                })()}
               </li>)) : <Empty />}</ul>
             <div className="text-[11px] uppercase tracking-wider text-white/50 mt-4 mb-2">Recent 5xx</div>
             <ul className="text-xs space-y-1">{data.recent5xx.length ? data.recent5xx.slice(0, 6).map((e, i) => (<li key={i} className="flex justify-between gap-2 text-white/70"><span className="truncate">{e.fn || e.path}</span><span className="shrink-0 text-red-300 tabular-nums">{e.status}</span></li>)) : <Empty text="No 5xx in 24h ✓" />}</ul>

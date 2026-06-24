@@ -107,6 +107,18 @@ point they must authorize ONLY via the exact `sb_secret_` match — so do step 7
 (verify_jwt=false) and step 8 (Vault → new `sb_secret_`) together, and the
 role-claim branch can be removed in Phase D cleanup.
 
+**Pre-staged (commit `167956c` on branch `phase-c-api-keys`, NOT merged):** the
+code half of steps 7 is ready — `config.toml` sets `verify_jwt=false` for both
+functions and `isServiceToken` drops the role-claim path (exact `sb_secret_`/legacy
+match only). It is deliberately off the deploy path because deploying it WITHOUT
+the simultaneous Vault → `sb_secret_` switch would 403 these two. **Activation
+sequence (one window):** (a) Vault `service_role_key` → new `sb_secret_`;
+(b) merge/push `phase-c-api-keys` → main (deploys config + keys.ts);
+(c) verify the cron path returns 200 on both (exact-secret match — if 403, the
+edge `SUPABASE_SECRET_KEYS` doesn't match Vault's value, so revert: re-point Vault
+to legacy + redeploy `main`'s role-claim version). Only then proceed to disable +
+revoke legacy.
+
 ## Rollback
 Until step 11 (revoke), everything is reversible: re-enable legacy keys (step 10),
 or unset the new env vars (the fallback resumes using legacy).

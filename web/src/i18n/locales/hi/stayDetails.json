@@ -36,7 +36,12 @@
   "callGuestServices": "अतिथि सेवाओं को कॉल करें",
   "extension": {
     "badge": "विस्तार {{status}} · {{date}}",
-    "status": { "pending": "लंबित", "approved": "स्वीकृत", "rejected": "अस्वीकृत", "cancelled": "रद्द" },
+    "status": {
+      "pending": "लंबित",
+      "approved": "स्वीकृत",
+      "rejected": "अस्वीकृत",
+      "cancelled": "रद्द"
+    },
     "cancelling": "रद्द हो रहा है…",
     "cancelRequest": "अनुरोध रद्द करें",
     "requestExtension": "प्रवास विस्तार का अनुरोध करें",
@@ -51,5 +56,11 @@
     "submit": "अनुरोध भेजें",
     "errSubmit": "अनुरोध सबमिट नहीं हो सका।",
     "errCancel": "रद्द नहीं किया जा सका।"
-  }
+  },
+  "invoiceError": "इनवॉइस जनरेट नहीं हो सका। कृपया फिर से प्रयास करें।",
+  "generating": "जनरेट हो रहा है…",
+  "needGstInvoice": "GST इनवॉइस चाहिए? (व्यवसाय / इनपुट क्रेडिट के लिए)",
+  "businessName": "पंजीकृत व्यवसाय का नाम",
+  "gstin": "GSTIN (15 अक्षर)",
+  "gstHint": "ये दर्ज करें, फिर ऊपर डाउनलोड पर टैप करके GST टैक्स इनवॉइस पाएँ।"
 }

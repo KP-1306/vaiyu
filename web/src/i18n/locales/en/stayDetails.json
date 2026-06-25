@@ -36,7 +36,12 @@
   "callGuestServices": "Call Guest Services",
   "extension": {
     "badge": "Extension {{status}} · {{date}}",
-    "status": { "pending": "pending", "approved": "approved", "rejected": "rejected", "cancelled": "cancelled" },
+    "status": {
+      "pending": "pending",
+      "approved": "approved",
+      "rejected": "rejected",
+      "cancelled": "cancelled"
+    },
     "cancelling": "Cancelling…",
     "cancelRequest": "Cancel request",
     "requestExtension": "Request stay extension",
@@ -51,5 +56,11 @@
     "submit": "Submit Request",
     "errSubmit": "Could not submit request.",
     "errCancel": "Could not cancel."
-  }
+  },
+  "invoiceError": "Could not generate the invoice. Please try again.",
+  "generating": "Generating…",
+  "needGstInvoice": "Need a GST invoice? (for business / input credit)",
+  "businessName": "Registered business name",
+  "gstin": "GSTIN (15 characters)",
+  "gstHint": "Enter these, then tap download above to get a GST tax invoice."
 }

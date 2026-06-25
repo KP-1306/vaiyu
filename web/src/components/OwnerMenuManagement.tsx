@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { setCatalogNameI18n } from "../lib/api";
+import { useOwnerT } from "../i18n/useOwnerT";
 import Spinner from "./Spinner";
 import AddFoodItemModal, { FoodItemData } from "./AddFoodItemModal";
 
@@ -37,6 +38,7 @@ function slugifyKey(name: string) {
 }
 
 export default function OwnerMenuManagement({ hotelId }: OwnerMenuManagementProps) {
+    const t = useOwnerT("owner-menu");
     const [items, setItems] = useState<EditableMenuItem[]>([]);
     const [categories, setCategories] = useState<MenuCategory[]>([]);
     const [loading, setLoading] = useState(true);
@@ -158,7 +160,7 @@ export default function OwnerMenuManagement({ hotelId }: OwnerMenuManagementProp
             setItems(normalized);
         } catch (e: any) {
             console.error(e);
-            setError(e?.message || "Failed to load food menu.");
+            setError(e?.message || t("manage.errLoad", "Failed to load food menu."));
         } finally {
             setLoading(false);
         }
@@ -238,7 +240,7 @@ export default function OwnerMenuManagement({ hotelId }: OwnerMenuManagementProp
             const validItems = items.filter((i) => i.name.trim().length > 0);
 
             if (validItems.length === 0 && items.length > 0) {
-                setError("No valid items to save.");
+                setError(t("manage.errNoValid", "No valid items to save."));
                 setSaving(false);
                 return;
             }
@@ -327,12 +329,12 @@ export default function OwnerMenuManagement({ hotelId }: OwnerMenuManagementProp
                 }
             }
 
-            setOk("Food menu saved. Changes are live in the guest menu.");
+            setOk(t("manage.savedOk", "Food menu saved. Changes are live in the guest menu."));
             loadData(); // Reload to get fresh IDs
 
         } catch (e: any) {
             console.error(e);
-            setError(e?.message || "Failed to save food menu.");
+            setError(e?.message || t("manage.errSave", "Failed to save food menu."));
         } finally {
             setSaving(false);
         }
@@ -341,7 +343,7 @@ export default function OwnerMenuManagement({ hotelId }: OwnerMenuManagementProp
     if (loading) {
         return (
             <div className="py-12 grid place-items-center">
-                <Spinner label="Loading food menu…" />
+                <Spinner label={t("loading", "Loading food menu…")} />
             </div>
         );
     }
@@ -362,9 +364,9 @@ export default function OwnerMenuManagement({ hotelId }: OwnerMenuManagementProp
             <section className="bg-white/5 rounded-lg border border-white/10 p-4 space-y-4">
                 <div className="flex items-center justify-between gap-2">
                     <div>
-                        <h2 className="text-lg font-medium text-white">Menu Items</h2>
+                        <h2 className="text-lg font-medium text-white">{t("manage.title", "Menu Items")}</h2>
                         <p className="text-xs text-slate-400 mt-1">
-                            Manage food and beverage items available for guests to order.
+                            {t("manage.subtitle", "Manage food and beverage items available for guests to order.")}
                         </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -373,16 +375,16 @@ export default function OwnerMenuManagement({ hotelId }: OwnerMenuManagementProp
                             className="px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 text-sm font-medium rounded-md transition-colors disabled:opacity-40"
                             onClick={suggestAllHindi}
                             disabled={suggestingAll || items.length === 0}
-                            title="Offline suggestion — fills a Hindi name for items that don't have one yet. Review, then Save."
+                            title={t("manage.suggestAllTitle", "Offline suggestion — fills a Hindi name for items that don't have one yet. Review, then Save.")}
                         >
-                            {suggestingAll ? "…" : "Suggest Hindi (all)"}
+                            {suggestingAll ? "…" : t("manage.suggestAll", "Suggest Hindi (all)")}
                         </button>
                         <button
                             type="button"
                             className="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-md transition-colors"
                             onClick={openAddModal}
                         >
-                            + Add item
+                            {t("manage.addItem", "+ Add item")}
                         </button>
                     </div>
                 </div>
@@ -392,12 +394,12 @@ export default function OwnerMenuManagement({ hotelId }: OwnerMenuManagementProp
                         <thead className="bg-white/5 text-slate-300 uppercase text-xs">
                             <tr>
                                 <th className="px-3 py-3 rounded-tl-md w-16"></th>
-                                <th className="px-3 py-3">Name</th>
-                                <th className="px-3 py-3">Hindi (हिं)</th>
-                                <th className="px-3 py-3">Category</th>
-                                <th className="px-3 py-3">Price</th>
-                                <th className="px-3 py-3 text-center">Veg</th>
-                                <th className="px-3 py-3 text-center">Active <span className="ml-1 text-slate-500" title="Toggle visibility regarding availability">ⓘ</span></th>
+                                <th className="px-3 py-3">{t("manage.colName", "Name")}</th>
+                                <th className="px-3 py-3">{t("manage.colHindi", "Hindi (हिं)")}</th>
+                                <th className="px-3 py-3">{t("manage.colCategory", "Category")}</th>
+                                <th className="px-3 py-3">{t("manage.colPrice", "Price")}</th>
+                                <th className="px-3 py-3 text-center">{t("manage.colVeg", "Veg")}</th>
+                                <th className="px-3 py-3 text-center">{t("manage.colActive", "Active")} <span className="ml-1 text-slate-500" title={t("manage.activeTitle", "Toggle visibility regarding availability")}>ⓘ</span></th>
                                 <th className="px-3 py-3 rounded-tr-md"></th>
                             </tr>
                         </thead>
@@ -409,7 +411,7 @@ export default function OwnerMenuManagement({ hotelId }: OwnerMenuManagementProp
                                             {item.metadata?.image_url ? (
                                                 <img src={item.metadata.image_url} alt="" className="w-full h-full object-cover" />
                                             ) : (
-                                                <span className="text-xs text-slate-600">No img</span>
+                                                <span className="text-xs text-slate-600">{t("manage.noImg", "No img")}</span>
                                             )}
                                         </div>
                                     </td>
@@ -420,7 +422,7 @@ export default function OwnerMenuManagement({ hotelId }: OwnerMenuManagementProp
                                             onChange={(e) =>
                                                 updateItem(idx, { name: e.target.value })
                                             }
-                                            placeholder="e.g. Masala Tea"
+                                            placeholder={t("manage.namePlaceholder", "e.g. Masala Tea")}
                                         />
                                     </td>
                                     <td className="px-3 py-2">
@@ -432,7 +434,7 @@ export default function OwnerMenuManagement({ hotelId }: OwnerMenuManagementProp
                                                 const v = e.target.value;
                                                 updateItem(idx, { name_i18n: v ? { ...(item.name_i18n || {}), hi: v } : {} });
                                             }}
-                                            placeholder="वैकल्पिक"
+                                            placeholder={t("manage.optionalPlaceholder", "Optional")}
                                         />
                                     </td>
                                     <td className="px-3 py-2">
@@ -444,7 +446,7 @@ export default function OwnerMenuManagement({ hotelId }: OwnerMenuManagementProp
                                                 updateItem(idx, { category_id: e.target.value })
                                             }
                                         >
-                                            <option value="" disabled>Select Category</option>
+                                            <option value="" disabled>{t("manage.selectCategory", "Select Category")}</option>
                                             {categories.map(c => (
                                                 <option key={c.id} value={c.id}>{c.name}</option>
                                             ))}
@@ -494,7 +496,7 @@ export default function OwnerMenuManagement({ hotelId }: OwnerMenuManagementProp
                                         <button
                                             onClick={() => openEditModal(item)}
                                             className="p-2 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded transition-colors"
-                                            title="Edit Details"
+                                            title={t("manage.editTitle", "Edit Details")}
                                         >
                                             <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -509,7 +511,7 @@ export default function OwnerMenuManagement({ hotelId }: OwnerMenuManagementProp
                                         colSpan={8}
                                         className="px-3 py-8 text-center text-slate-500 italic"
                                     >
-                                        No items yet. Click "+ Add item" to create your first dish.
+                                        {t("manage.empty", "No items yet. Click \"+ Add item\" to create your first dish.")}
                                     </td>
                                 </tr>
                             )}
@@ -525,7 +527,7 @@ export default function OwnerMenuManagement({ hotelId }: OwnerMenuManagementProp
                     onClick={save}
                     disabled={saving || !hotelId}
                 >
-                    {saving ? "Saving…" : "Save Changes"}
+                    {saving ? t("manage.saving", "Saving…") : t("manage.save", "Save Changes")}
                 </button>
             </div>
 

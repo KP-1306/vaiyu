@@ -134,7 +134,7 @@ export default function OwnerBookingDetail() {
       <div className="mx-auto max-w-3xl px-4 sm:px-6 py-5">
         {/* Breadcrumb + back */}
         <div className="mb-4 flex items-center justify-between gap-3">
-          <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs font-medium">
+          <nav aria-label={t("breadcrumb.ariaLabel", "Breadcrumb")} className="flex items-center gap-2 text-xs font-medium">
             <Link to="/owner" className="text-slate-400 hover:text-white transition-colors">{t("breadcrumb.console", "Console")}</Link>
             <span className="text-slate-600">/</span>
             <Link to={`/owner/${slug}`} className="text-slate-400 hover:text-white transition-colors">{tc("nav.dashboard", "Dashboard")}</Link>

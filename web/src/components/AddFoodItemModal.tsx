@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import BilingualNameField from "./BilingualNameField";
+import { useOwnerT, useOwnerCommonT } from "../i18n/useOwnerT";
 
 interface MenuCategory {
     id: string;
@@ -40,7 +41,39 @@ interface AddFoodItemModalProps {
     initialData?: FoodItemData;
 }
 
+// Day definitions: value is stored in DB, key is for i18n lookup, label is the
+// EN fallback abbreviation. Values must never be translated (they're identifiers).
+const DAY_DEFS = [
+    { key: "mon", value: 1, label: "M" },
+    { key: "tue", value: 2, label: "T" },
+    { key: "wed", value: 3, label: "W" },
+    { key: "thu", value: 4, label: "T" },
+    { key: "fri", value: 5, label: "F" },
+    { key: "sat", value: 6, label: "S" },
+    { key: "sun", value: 7, label: "S" },
+] as const;
+
+// Spice levels: value is stored in DB, label is EN fallback. Values must never
+// be translated — only display labels change.
+const SPICE_DEFS = [
+    { value: "Mild" as const, key: "spice.mild", label: "Mild" },
+    { value: "Medium" as const, key: "spice.medium", label: "Medium" },
+    { value: "Hot" as const, key: "spice.hot", label: "Hot" },
+];
+
+// Allergen definitions: value is stored in DB (English string), display via i18n.
+const ALLERGEN_DEFS = [
+    { value: "Nuts", key: "allergens.nuts", label: "Nuts" },
+    { value: "Dairy", key: "allergens.dairy", label: "Dairy" },
+    { value: "Gluten", key: "allergens.gluten", label: "Gluten" },
+    { value: "Soy", key: "allergens.soy", label: "Soy" },
+    { value: "Eggs", key: "allergens.eggs", label: "Eggs" },
+    { value: "Shellfish", key: "allergens.shellfish", label: "Shellfish" },
+];
+
 export default function AddFoodItemModal({ isOpen, onClose, onSave, hotelId, initialData }: AddFoodItemModalProps) {
+    const t = useOwnerT("owner-food-modal");
+    const tc = useOwnerCommonT();
     const [categories, setCategories] = useState<MenuCategory[]>([]);
     const [loadingCats, setLoadingCats] = useState(false);
 
@@ -194,7 +227,7 @@ export default function AddFoodItemModal({ isOpen, onClose, onSave, hotelId, ini
             return data.publicUrl;
         } catch (error) {
             console.error('Error uploading image:', error);
-            alert('Failed to upload image');
+            alert(t("errors.uploadFailed", "Failed to upload image"));
             return null;
         } finally {
             setUploadingImage(false);
@@ -203,7 +236,7 @@ export default function AddFoodItemModal({ isOpen, onClose, onSave, hotelId, ini
 
     const handleSave = async () => {
         if (!name || !price || !categoryId) {
-            alert("Please fill in Name, Price and Category");
+            alert(t("validation.required", "Please fill in Name, Price and Category"));
             return;
         }
 
@@ -267,7 +300,9 @@ export default function AddFoodItemModal({ isOpen, onClose, onSave, hotelId, ini
 
                 {/* Header */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-[#1A2040]">
-                    <h2 className="text-lg font-semibold text-white">Add Food Item</h2>
+                    <h2 className="text-lg font-semibold text-white">
+                        {isEdit ? t("title.edit", "Edit Food Item") : t("title.add", "Add Food Item")}
+                    </h2>
                     <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors">
                         <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -283,13 +318,13 @@ export default function AddFoodItemModal({ isOpen, onClose, onSave, hotelId, ini
                         <div className="space-y-6">
                             {/* Basic Info */}
                             <div className="space-y-4">
-                                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Basic Info</h3>
+                                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">{t("section.basicInfo", "Basic Info")}</h3>
 
                                 {/* Image Upload */}
                                 <div className="flex items-center gap-4">
                                     <div className="relative w-20 h-20 rounded-lg bg-[#0B0F1A] border border-white/10 flex items-center justify-center overflow-hidden group">
                                         {imageUrl ? (
-                                            <img src={imageUrl} alt="Preview" className="w-full h-full object-cover" />
+                                            <img src={imageUrl} alt={t("fields.imagePreview", "Preview")} className="w-full h-full object-cover" />
                                         ) : (
                                             <svg className="w-8 h-8 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -309,21 +344,21 @@ export default function AddFoodItemModal({ isOpen, onClose, onSave, hotelId, ini
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-medium text-slate-400 mb-1">Item Image</label>
-                                        <div className="text-xs text-slate-500">Tap to upload</div>
-                                        {uploadingImage && <div className="text-xs text-blue-400 mt-1">Uploading...</div>}
+                                        <label className="block text-xs font-medium text-slate-400 mb-1">{t("fields.itemImage", "Item Image")}</label>
+                                        <div className="text-xs text-slate-500">{t("fields.tapToUpload", "Tap to upload")}</div>
+                                        {uploadingImage && <div className="text-xs text-blue-400 mt-1">{t("status.uploading", "Uploading...")}</div>}
                                     </div>
                                 </div>
 
                                 <div className="space-y-3">
                                     <div>
-                                        <label className="block text-xs font-medium text-slate-400 mb-1">Item Name</label>
+                                        <label className="block text-xs font-medium text-slate-400 mb-1">{t("fields.itemName", "Item Name")}</label>
                                         <input
                                             type="text"
                                             value={name}
                                             onChange={e => setName(e.target.value)}
                                             className="w-full bg-[#0B0F1A] border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-blue-500 transition-colors"
-                                            placeholder="e.g. Pasta Alfredo"
+                                            placeholder={t("fields.namePlaceholder", "e.g. Pasta Alfredo")}
                                         />
                                     </div>
 
@@ -336,7 +371,7 @@ export default function AddFoodItemModal({ isOpen, onClose, onSave, hotelId, ini
                                     />
 
                                     <div>
-                                        <label className="block text-xs font-medium text-slate-400 mb-1">Item Key</label>
+                                        <label className="block text-xs font-medium text-slate-400 mb-1">{t("fields.itemKey", "Item Key")}</label>
                                         <input
                                             type="text"
                                             value={itemKey}
@@ -348,21 +383,21 @@ export default function AddFoodItemModal({ isOpen, onClose, onSave, hotelId, ini
 
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
-                                            <label className="block text-xs font-medium text-slate-400 mb-1">Category</label>
+                                            <label className="block text-xs font-medium text-slate-400 mb-1">{t("fields.category", "Category")}</label>
                                             <select
                                                 value={categoryId}
                                                 onChange={e => setCategoryId(e.target.value)}
                                                 className="w-full bg-[#0B0F1A] border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-blue-500 transition-colors"
                                             >
-                                                <option value="" disabled>Select Category</option>
+                                                <option value="" disabled>{t("fields.selectCategory", "Select Category")}</option>
                                                 {categories.map(c => (
                                                     <option key={c.id} value={c.id}>{c.name}</option>
                                                 ))}
-                                                {categories.length === 0 && !loadingCats && <option value="" disabled>No categories found</option>}
+                                                {categories.length === 0 && !loadingCats && <option value="" disabled>{t("fields.noCategories", "No categories found")}</option>}
                                             </select>
                                         </div>
                                         <div>
-                                            <label className="block text-xs font-medium text-slate-400 mb-1">Price</label>
+                                            <label className="block text-xs font-medium text-slate-400 mb-1">{t("fields.price", "Price")}</label>
                                             <div className="relative">
                                                 <span className="absolute left-3 top-2 text-slate-500">₹</span>
                                                 <input
@@ -380,13 +415,12 @@ export default function AddFoodItemModal({ isOpen, onClose, onSave, hotelId, ini
 
                             {/* Availability */}
                             <div className="space-y-4">
-                                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Availability</h3>
+                                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">{t("section.availability", "Availability")}</h3>
 
                                 <div>
-                                    <label className="block text-xs font-medium text-slate-400 mb-2">Days Active</label>
+                                    <label className="block text-xs font-medium text-slate-400 mb-2">{t("fields.daysActive", "Days Active")}</label>
                                     <div className="flex flex-wrap gap-2">
-                                        {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((dayLabel, idx) => {
-                                            const dayNum = idx + 1;
+                                        {DAY_DEFS.map(({ key, value: dayNum, label }) => {
                                             const isSelected = selectedDays.includes(dayNum);
                                             return (
                                                 <button
@@ -397,7 +431,7 @@ export default function AddFoodItemModal({ isOpen, onClose, onSave, hotelId, ini
                                                         : 'bg-[#0B0F1A] text-slate-500 border border-white/10 hover:border-white/30'
                                                         }`}
                                                 >
-                                                    {dayLabel}
+                                                    {t(`days.${key}`, label)}
                                                 </button>
                                             );
                                         })}
@@ -406,7 +440,7 @@ export default function AddFoodItemModal({ isOpen, onClose, onSave, hotelId, ini
 
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-xs font-medium text-slate-400 mb-1">Start Time</label>
+                                        <label className="block text-xs font-medium text-slate-400 mb-1">{t("fields.startTime", "Start Time")}</label>
                                         <input
                                             type="time"
                                             value={startTime}
@@ -415,7 +449,7 @@ export default function AddFoodItemModal({ isOpen, onClose, onSave, hotelId, ini
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-medium text-slate-400 mb-1">End Time</label>
+                                        <label className="block text-xs font-medium text-slate-400 mb-1">{t("fields.endTime", "End Time")}</label>
                                         <input
                                             type="time"
                                             value={endTime}
@@ -432,7 +466,7 @@ export default function AddFoodItemModal({ isOpen, onClose, onSave, hotelId, ini
                                         onChange={e => setHideOutside(e.target.checked)}
                                         className="w-4 h-4 rounded border-slate-600 bg-[#0B0F1A] text-blue-600 focus:ring-blue-500 transition-all"
                                     />
-                                    <span className="text-sm text-slate-300 group-hover:text-white transition-colors">Hide outside availability window</span>
+                                    <span className="text-sm text-slate-300 group-hover:text-white transition-colors">{t("fields.hideOutside", "Hide outside availability window")}</span>
                                 </label>
                             </div>
                         </div>
@@ -441,7 +475,7 @@ export default function AddFoodItemModal({ isOpen, onClose, onSave, hotelId, ini
                         <div className="space-y-6">
                             {/* Dietary Info */}
                             <div className="space-y-4">
-                                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Dietary Info</h3>
+                                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">{t("section.dietary", "Dietary Info")}</h3>
 
                                 <div className="flex gap-4">
                                     <label className="flex items-center gap-2 cursor-pointer group">
@@ -451,7 +485,7 @@ export default function AddFoodItemModal({ isOpen, onClose, onSave, hotelId, ini
                                             onChange={e => setIsVeg(e.target.checked)}
                                             className="w-4 h-4 rounded border-slate-600 bg-[#0B0F1A] text-green-500 focus:ring-green-500 transition-all"
                                         />
-                                        <span className="text-sm text-slate-300 group-hover:text-white transition-colors">Vegetarian</span>
+                                        <span className="text-sm text-slate-300 group-hover:text-white transition-colors">{t("dietary.vegetarian", "Vegetarian")}</span>
                                     </label>
                                     <label className="flex items-center gap-2 cursor-pointer group">
                                         <input
@@ -460,7 +494,7 @@ export default function AddFoodItemModal({ isOpen, onClose, onSave, hotelId, ini
                                             onChange={e => setIsJain(e.target.checked)}
                                             className="w-4 h-4 rounded border-slate-600 bg-[#0B0F1A] text-amber-500 focus:ring-amber-500 transition-all"
                                         />
-                                        <span className="text-sm text-slate-300 group-hover:text-white transition-colors">Jain</span>
+                                        <span className="text-sm text-slate-300 group-hover:text-white transition-colors">{t("dietary.jain", "Jain")}</span>
                                     </label>
                                     <label className="flex items-center gap-2 cursor-pointer group">
                                         <input
@@ -469,25 +503,25 @@ export default function AddFoodItemModal({ isOpen, onClose, onSave, hotelId, ini
                                             onChange={e => setIsVegan(e.target.checked)}
                                             className="w-4 h-4 rounded border-slate-600 bg-[#0B0F1A] text-emerald-500 focus:ring-emerald-500 transition-all"
                                         />
-                                        <span className="text-sm text-slate-300 group-hover:text-white transition-colors">Vegan</span>
+                                        <span className="text-sm text-slate-300 group-hover:text-white transition-colors">{t("dietary.vegan", "Vegan")}</span>
                                     </label>
                                 </div>
                             </div>
 
                             {/* Spice Level */}
                             <div className="space-y-4">
-                                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Spice Level</h3>
+                                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">{t("section.spiceLevel", "Spice Level")}</h3>
                                 <div className="flex gap-3">
-                                    {['Mild', 'Medium', 'Hot'].map(level => (
+                                    {SPICE_DEFS.map(({ value, key, label }) => (
                                         <button
-                                            key={level}
-                                            onClick={() => setSpiceLevel(level as any === spiceLevel ? null : level as any)}
-                                            className={`px-4 py-2 rounded-lg text-sm font-medium border transition-all ${spiceLevel === level
+                                            key={value}
+                                            onClick={() => setSpiceLevel(value === spiceLevel ? null : value)}
+                                            className={`px-4 py-2 rounded-lg text-sm font-medium border transition-all ${spiceLevel === value
                                                 ? 'bg-red-500/10 border-red-500 text-red-500'
                                                 : 'bg-[#0B0F1A] border-white/10 text-slate-400 hover:border-white/30'
                                                 }`}
                                         >
-                                            {level}
+                                            {t(key, label)}
                                         </button>
                                     ))}
                                 </div>
@@ -495,17 +529,17 @@ export default function AddFoodItemModal({ isOpen, onClose, onSave, hotelId, ini
 
                             {/* Allergens */}
                             <div className="space-y-4">
-                                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Allergens</h3>
+                                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">{t("section.allergens", "Allergens")}</h3>
                                 <div className="grid grid-cols-2 gap-3">
-                                    {['Nuts', 'Dairy', 'Gluten', 'Soy', 'Eggs', 'Shellfish'].map(allergen => (
-                                        <label key={allergen} className="flex items-center gap-2 cursor-pointer group">
+                                    {ALLERGEN_DEFS.map(({ value, key, label }) => (
+                                        <label key={value} className="flex items-center gap-2 cursor-pointer group">
                                             <input
                                                 type="checkbox"
-                                                checked={allergens.includes(allergen)}
-                                                onChange={() => toggleAllergen(allergen)}
+                                                checked={allergens.includes(value)}
+                                                onChange={() => toggleAllergen(value)}
                                                 className="w-4 h-4 rounded border-slate-600 bg-[#0B0F1A] text-rose-500 focus:ring-rose-500 transition-all"
                                             />
-                                            <span className="text-sm text-slate-300 group-hover:text-white transition-colors">{allergen}</span>
+                                            <span className="text-sm text-slate-300 group-hover:text-white transition-colors">{t(key, label)}</span>
                                         </label>
                                     ))}
                                 </div>
@@ -513,11 +547,11 @@ export default function AddFoodItemModal({ isOpen, onClose, onSave, hotelId, ini
 
                             {/* Item Description */}
                             <div className="space-y-4">
-                                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Item Description</h3>
+                                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">{t("section.description", "Item Description")}</h3>
                                 <textarea
                                     value={internalNotes}
                                     onChange={e => setInternalNotes(e.target.value)}
-                                    placeholder="Add a tasty description for the guest..."
+                                    placeholder={t("fields.descPlaceholder", "Add a tasty description for the guest...")}
                                     className="w-full bg-[#0B0F1A] border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-blue-500 transition-colors min-h-[100px] resize-none"
                                 />
                             </div>
@@ -532,14 +566,14 @@ export default function AddFoodItemModal({ isOpen, onClose, onSave, hotelId, ini
                         onClick={onClose}
                         className="px-4 py-2 bg-transparent border border-white/10 text-slate-300 rounded-lg hover:bg-white/5 transition-colors font-medium"
                     >
-                        Cancel
+                        {tc("actions.cancel", "Cancel")}
                     </button>
                     <button
                         onClick={handleSave}
                         disabled={uploadingImage}
                         className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition-colors font-medium shadow-lg shadow-blue-500/20 disabled:opacity-50 disabled:cursor-wait"
                     >
-                        {uploadingImage ? 'Uploading...' : 'Save'}
+                        {uploadingImage ? t("actions.uploading", "Uploading...") : t("actions.save", "Save")}
                     </button>
                 </div>
 

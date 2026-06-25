@@ -17,6 +17,7 @@ import SEO from "../components/SEO";
 import Spinner from "../components/Spinner";
 import { OwnerLangToggle } from "../i18n/OwnerLangToggle";
 import OwnerMenuManagement from "../components/OwnerMenuManagement";
+import { useOwnerT, useOwnerCommonT } from "../i18n/useOwnerT";
 
 type Hotel = {
   id: string;
@@ -26,6 +27,8 @@ type Hotel = {
 
 function OwnerMenuInner() {
   const { slug } = useParams<{ slug?: string }>();
+  const t = useOwnerT("owner-menu");
+  const tc = useOwnerCommonT();
 
   const [hotel, setHotel] = useState<Hotel | null>(null);
   const [loading, setLoading] = useState(true);
@@ -72,10 +75,10 @@ function OwnerMenuInner() {
             to={slug ? `/owner/${slug}` : "/owner"}
             className="font-medium text-slate-400 hover:text-white"
           >
-            Dashboard
+            {tc("nav.dashboard", "Dashboard")}
           </Link>
           <span className="text-slate-600">›</span>
-          <span className="font-semibold text-white">Food Menu</span>
+          <span className="font-semibold text-white">{t("title", "Food Menu")}</span>
         </div>
         <OwnerLangToggle />
       </header>
@@ -84,9 +87,9 @@ function OwnerMenuInner() {
       <div className="flex-1 bg-gradient-to-b from-[#1A2040] via-[#0B0F1A] to-[#0B0F1A] text-white p-6 md:p-7">
         <div className="max-w-6xl mx-auto space-y-5">
           <div>
-            <h1 className="text-2xl font-semibold">Food Menu</h1>
+            <h1 className="text-2xl font-semibold">{t("title", "Food Menu")}</h1>
             <p className="text-sm text-slate-400 mt-1">
-              Items here power the <strong>Food</strong> tab in the guest menu.
+              {t("subtitle", "Items here power the Food tab in the guest menu.")}
               {hotel && (
                 <>
                   {" "}
@@ -98,7 +101,7 @@ function OwnerMenuInner() {
 
           {loading && !hotel && (
             <div className="min-h-[40vh] grid place-items-center">
-              <Spinner label="Loading food menu…" />
+              <Spinner label={t("loading", "Loading food menu…")} />
             </div>
           )}
 
@@ -118,9 +121,10 @@ function OwnerMenuInner() {
 }
 
 export default function OwnerMenu() {
+  const t = useOwnerT("owner-menu");
   return (
     <>
-      <SEO title="Food menu" noIndex />
+      <SEO title={t("title", "Food Menu")} noIndex />
       <OwnerGate>
         <OwnerMenuInner />
       </OwnerGate>

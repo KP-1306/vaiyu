@@ -75,7 +75,8 @@
     "assets": "Digital Assets",
     "import-bookings": "Import Bookings",
     "settings": "Settings",
-    "services": "Services & SLA"
+    "services": "Services & SLA",
+    "rooms": "Rooms"
   },
   "group": {
     "operations": "Operations",
@@ -167,5 +168,12 @@
     "OTHER": "Other",
     "DIRECT": "Direct",
     "ROUTE": "Route"
+  },
+  "bilingualName": {
+    "label": "Hindi name (optional)",
+    "suggest": "Suggest in हिंदी",
+    "suggestTitle": "Offline transliteration suggestion — please review before saving",
+    "placeholder": "अतिथि को हिंदी में दिखेगा",
+    "helper": "Shown to guests viewing in Hindi. Leave blank to show the English name."
   }
 }

@@ -842,7 +842,7 @@ export default function OwnerPayments() {
                                                                                             onClick={() => runRefresh(r)}
                                                                                             disabled={isRefreshing}
                                                                                             className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border bg-sky-500/10 hover:bg-sky-500/20 text-sky-200 border-sky-500/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                                                                                            title="Ask Razorpay for the current refund status"
+                                                                                            title={t("table.refreshTitle", "Ask Razorpay for the current refund status")}
                                                                                         >
                                                                                             {isRefreshing ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />}
                                                                                             {isRefreshing ? t("table.checking", "Checking") : t("table.refresh", "Refresh")}

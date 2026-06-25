@@ -1,0 +1,125 @@
+{
+  "tabs": {
+    "summary": "सारांश",
+    "folio": "फोलियो",
+    "payments": "पेमेंट",
+    "activity": "गतिविधि"
+  },
+  "header": {
+    "nights_one": "{{count}} रात",
+    "nights_other": "{{count}} रातें",
+    "unassigned": "अनिर्धारित"
+  },
+  "outstanding": "बकाया बैलेंस:",
+  "folioEntries": "फोलियो एंट्री",
+  "loadingFolio": "फोलियो लोड हो रहा है...",
+  "lines": {
+    "roomCharges": "रूम चार्ज",
+    "discount": "डिस्काउंट",
+    "surcharge": "सरचार्ज",
+    "tax": "टैक्स",
+    "food": "फूड / F&B",
+    "service": "सर्विस",
+    "paymentsReceived": "प्राप्त पेमेंट",
+    "totalCharges": "कुल चार्ज",
+    "totalPayments": "कुल पेमेंट",
+    "outstandingBalance": "बकाया बैलेंस"
+  },
+  "collectPayment": "पेमेंट लें",
+  "summary": {
+    "stayInfo": "ठहराव जानकारी",
+    "checkin": "चेक-इन",
+    "checkout": "चेक-आउट",
+    "room": "रूम",
+    "guests": "गेस्ट",
+    "person_one": "{{count}} व्यक्ति",
+    "person_other": "{{count}} व्यक्ति",
+    "bookingRefSource": "बुकिंग रेफ / स्रोत",
+    "otaBooking": "OTA बुकिंग",
+    "directBooking": "डायरेक्ट बुकिंग",
+    "quickKpis": "क्विक KPI",
+    "vipStatus": "VIP स्थिति",
+    "vipStay": "VIP स्टे",
+    "standard": "सामान्य",
+    "roomStatus": "रूम स्थिति",
+    "roomState": {
+      "waiting": "प्रतीक्षारत",
+      "inhouse": "इन-हाउस",
+      "ready": "तैयार",
+      "dirty": "गंदा",
+      "unassigned": "अनिर्धारित"
+    }
+  },
+  "payments": {
+    "title": "ट्रांज़ैक्शन इतिहास",
+    "records": "{{count}} रिकॉर्ड",
+    "loading": "ट्रांज़ैक्शन लोड हो रहे हैं...",
+    "emptyTitle": "अभी कोई पेमेंट नहीं",
+    "emptyBody": "इस ठहराव के लिए कोई ट्रांज़ैक्शन दर्ज नहीं हुआ।",
+    "refunded": "रिफंड किया",
+    "failed": "विफल",
+    "by": "द्वारा:",
+    "system": "सिस्टम",
+    "refund": "रिफंड",
+    "recordNew": "+ नया पेमेंट दर्ज करें"
+  },
+  "activity": {
+    "title": "ऑपरेशनल टाइमलाइन",
+    "events": "{{count}} घटनाएं",
+    "loading": "टाइमलाइन लोड हो रही है...",
+    "emptyTitle": "अभी कोई गतिविधि नहीं",
+    "emptyBody": "इस ठहराव के लिए कोई घटना दर्ज नहीं हुई।"
+  },
+  "footer": "मदद चाहिए? फ्रंट डेस्क को कॉल करें {{phone}}",
+  "timeline": {
+    "guestCheckedIn": "गेस्ट ने चेक-इन किया",
+    "guestCheckedOut": "गेस्ट ने चेक-आउट किया",
+    "stayCompleted": "ठहराव पूर्ण",
+    "bookingCreated": "बुकिंग बनाई गई",
+    "via": "{{source}} के माध्यम से",
+    "directEntry": "डायरेक्ट एंट्री",
+    "collectedBy": "{{name}} द्वारा वसूला गया",
+    "roomSub": "रूम {{room}}",
+    "assigned": "निर्धारित"
+  },
+  "collectModal": {
+    "method": "पेमेंट तरीका",
+    "cash": "कैश",
+    "upi": "UPI",
+    "card": "कार्ड",
+    "bankTransfer": "बैंक ट्रांसफर",
+    "recordsHint": "गेस्ट से पहले ही प्राप्त पेमेंट दर्ज करता है।",
+    "enterAmount": "राशि दर्ज करें",
+    "enterNote": "नोट दर्ज करें (वैकल्पिक)",
+    "processing": "प्रोसेस हो रहा है…",
+    "recordAmount": "{{amount}} दर्ज करें",
+    "recordFallback": "पेमेंट",
+    "orOnline": "या ऑनलाइन वसूलें",
+    "opening": "खुल रहा है…",
+    "collectOnline": "₹{{amount}} Razorpay से वसूलें",
+    "onlineHint": "गेस्ट से पूरा बैलेंस अभी ऑनलाइन वसूलता है।"
+  },
+  "refundModal": {
+    "title": "पेमेंट रिफंड करें",
+    "subtitle": "Razorpay से रिफंड (Linked Account से डेबिट होता है)",
+    "close": "बंद करें",
+    "originalPayment": "मूल पेमेंट:",
+    "amountLabel": "रिफंड राशि (₹)",
+    "amountHint": "डिफ़ॉल्ट रूप से पूरी राशि। आंशिक रिफंड की अनुमति है।",
+    "reason": "कारण",
+    "reasonHint": "(स्टाफ नोट, वैकल्पिक)",
+    "reasonPlaceholder": "गेस्ट ने अतिरिक्त रात के चार्ज पर आपत्ति जताई…",
+    "disclaimer": "रिफंड reverse_all: 1 के साथ प्रोसेस होते हैं ताकि फंड इस होटल के Razorpay Linked Account से वापस आएं। Razorpay आमतौर पर 5–7 कार्यदिवसों में रिफंड सेटल करता है।",
+    "cancel": "रद्द करें",
+    "processing": "प्रोसेस हो रहा है…",
+    "refund": "रिफंड"
+  },
+  "errors": {
+    "refundGtZero": "रिफंड राशि 0 से अधिक होनी चाहिए",
+    "refundMax": "मूल राशि (₹{{amount}}) से अधिक रिफंड नहीं कर सकते",
+    "paymentFailedPrefix": "पेमेंट विफल: {{msg}}",
+    "paymentCancelled": "पेमेंट रद्द — कोई पैसा नहीं गया।",
+    "razorpayRejected": "Razorpay ने पेमेंट अस्वीकार किया",
+    "paymentFailed": "पेमेंट विफल"
+  }
+}

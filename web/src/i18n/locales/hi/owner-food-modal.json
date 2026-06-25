@@ -1,0 +1,71 @@
+{
+  "title": {
+    "add": "फूड आइटम जोड़ें",
+    "edit": "फूड आइटम संपादित करें"
+  },
+  "section": {
+    "basicInfo": "बेसिक जानकारी",
+    "availability": "उपलब्धता",
+    "dietary": "डायटरी जानकारी",
+    "spiceLevel": "मसाला स्तर",
+    "allergens": "एलर्जन",
+    "description": "आइटम विवरण"
+  },
+  "fields": {
+    "itemImage": "आइटम फोटो",
+    "tapToUpload": "अपलोड करने के लिए टैप करें",
+    "itemName": "आइटम नाम",
+    "namePlaceholder": "जैसे पास्ता अल्फ्रेडो",
+    "itemKey": "आइटम की",
+    "category": "श्रेणी",
+    "selectCategory": "श्रेणी चुनें",
+    "noCategories": "कोई श्रेणी नहीं मिली",
+    "price": "कीमत",
+    "daysActive": "सक्रिय दिन",
+    "startTime": "शुरू का समय",
+    "endTime": "बंद का समय",
+    "hideOutside": "उपलब्धता विंडो के बाहर छुपाएं",
+    "descPlaceholder": "गेस्ट के लिए स्वादिष्ट विवरण लिखें...",
+    "imagePreview": "प्रिव्यू"
+  },
+  "days": {
+    "mon": "सो",
+    "tue": "मं",
+    "wed": "बु",
+    "thu": "गु",
+    "fri": "शु",
+    "sat": "श",
+    "sun": "र"
+  },
+  "dietary": {
+    "vegetarian": "शाकाहारी",
+    "jain": "जैन",
+    "vegan": "वीगन"
+  },
+  "spice": {
+    "mild": "हल्का",
+    "medium": "मध्यम",
+    "hot": "तीखा"
+  },
+  "allergens": {
+    "nuts": "मेवे",
+    "dairy": "डेयरी",
+    "gluten": "ग्लूटेन",
+    "soy": "सोया",
+    "eggs": "अंडे",
+    "shellfish": "शेलफिश"
+  },
+  "status": {
+    "uploading": "अपलोड हो रहा है..."
+  },
+  "validation": {
+    "required": "कृपया नाम, कीमत और श्रेणी भरें"
+  },
+  "errors": {
+    "uploadFailed": "फोटो अपलोड नहीं हुई"
+  },
+  "actions": {
+    "uploading": "अपलोड हो रहा है...",
+    "save": "सेव करें"
+  }
+}

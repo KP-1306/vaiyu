@@ -3,6 +3,7 @@
 // Shows the current most-recent extension status if one exists.
 
 import { useCallback, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { CalendarPlus, Clock, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import {
@@ -155,9 +156,9 @@ export default function RequestExtensionButton({
         )}
       </div>
 
-      {open && (
+      {open && createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur p-4"
+          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/70 backdrop-blur p-4"
           onClick={() => !submitting && setOpen(false)}
         >
           <div
@@ -222,7 +223,8 @@ export default function RequestExtensionButton({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );

@@ -26,13 +26,66 @@
 // DISPLAY is localised, via the owner-common status./role./mode. maps keyed BY
 // the code (see localizeCode / humanizeCode below).
 
-import { useCallback } from 'react';
+import { useCallback, useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
+import { persistLanguage, STORAGE_KEY, type AppLang } from './detect';
 
 // Master switch for the whole owner console. OFF during the multi-tranche build:
 // prod owner console stays fully English no matter the saved language. Flip to
 // true in the final tranche, after 100% is translated and screenshot-QA'd.
 export const OWNER_I18N_ENABLED = true;
+
+/**
+ * The owner console's active language — and the ONE place that decides it.
+ *
+ * Unlike the guest portal (which auto-selects Hindi from the device language for
+ * a zero-tap experience), the owner console DEFAULTS TO ENGLISH and switches to
+ * Hindi ONLY when the owner has explicitly chosen it — via the EN|हिं toggle or a
+ * `?lang=hi` deep link. Those are the only paths that write `vaiyu.lang` to
+ * localStorage; a Hindi-set device resolves in memory but never persists, so it
+ * never flips an owner here. (This is why we read the saved key directly rather
+ * than `i18n.language`, which would carry the device default.) Always 'en' while
+ * reveal-gated.
+ */
+export function readOwnerLang(): 'en' | 'hi' {
+  if (!OWNER_I18N_ENABLED) return 'en';
+  try {
+    const saved = (localStorage.getItem(STORAGE_KEY) || '')
+      .toLowerCase()
+      .split('-')[0];
+    return saved === 'hi' ? 'hi' : 'en';
+  } catch {
+    // storage blocked (private mode) — default English
+    return 'en';
+  }
+}
+
+// --- Reactive owner-language store ---------------------------------------
+// Owner content is driven by the SAVED choice (readOwnerLang), not i18n.language,
+// so we can't rely on i18next's 'languageChanged' to re-render: on a Hindi device
+// the global language is already 'hi', so an owner opting in to Hindi would call
+// changeLanguage('hi') — a no-op that emits nothing. This tiny external store
+// guarantees every owner consumer re-renders the moment the choice changes.
+const ownerLangListeners = new Set<() => void>();
+function subscribeOwnerLang(cb: () => void): () => void {
+  ownerLangListeners.add(cb);
+  return () => ownerLangListeners.delete(cb);
+}
+
+/**
+ * Persist the owner's explicit language choice and re-render every owner
+ * consumer. The owner toggle calls this; it does NOT touch the guest portal's
+ * device-language behaviour (only the shared saved choice).
+ */
+export function setOwnerLang(lang: AppLang): void {
+  persistLanguage(lang);
+  ownerLangListeners.forEach((l) => l());
+}
+
+/** Reactive read of the owner language (re-renders on setOwnerLang). */
+export function useOwnerLangValue(): 'en' | 'hi' {
+  return useSyncExternalStore(subscribeOwnerLang, readOwnerLang, () => 'en');
+}
 
 export type OwnerT = (
   key: string,
@@ -43,15 +96,11 @@ export type OwnerT = (
 /** Owner-scoped translator for a namespace. See file header for the call shape. */
 export function useOwnerT(ns: string): OwnerT {
   const { t } = useTranslation(ns);
+  const lng = useOwnerLangValue();
   return useCallback<OwnerT>(
     (key, defaultValue, vars) =>
-      t(key, {
-        defaultValue,
-        // Force English while gated; once enabled, follow the global language.
-        ...(OWNER_I18N_ENABLED ? {} : { lng: 'en' }),
-        ...vars,
-      }) as string,
-    [t],
+      t(key, { defaultValue, lng, ...vars }) as string,
+    [t, lng],
   );
 }
 
@@ -69,11 +118,7 @@ export function useOwnerCommonT(): OwnerT {
  * portal). Money stays 'en-IN' everywhere (₹ + Latin digits).
  */
 export function useOwnerLocale(): string {
-  const { i18n } = useTranslation();
-  const isHi =
-    OWNER_I18N_ENABLED &&
-    (i18n.resolvedLanguage || i18n.language || 'en').startsWith('hi');
-  return isHi ? 'hi-IN-u-nu-latn' : 'en-IN';
+  return useOwnerLangValue() === 'hi' ? 'hi-IN-u-nu-latn' : 'en-IN';
 }
 
 /**
@@ -83,11 +128,7 @@ export function useOwnerLocale(): string {
  * without routing them through the i18n translation system.
  */
 export function useOwnerLang(): 'en' | 'hi' {
-  const { i18n } = useTranslation();
-  if (!OWNER_I18N_ENABLED) return 'en';
-  return (i18n.resolvedLanguage || i18n.language || 'en').startsWith('hi')
-    ? 'hi'
-    : 'en';
+  return useOwnerLangValue();
 }
 
 /**

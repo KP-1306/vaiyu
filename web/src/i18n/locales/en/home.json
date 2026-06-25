@@ -65,7 +65,9 @@
     "trackAfterRequest": "Tracking becomes available once you've made a request!",
     "expressCheckout": "Express checkout is available during your active stay."
   },
-  "carousel": { "otherBookings": "Other Bookings ({{count}})" },
+  "carousel": {
+    "otherBookings": "Other Bookings ({{count}})"
+  },
   "empty": {
     "noActiveStays": "No active stays found.",
     "noStaysTitle": "No Stays Found",
@@ -85,7 +87,8 @@
     "paymentsReceived": "Payments Received",
     "currentTotal": "Current Total:",
     "downloadInvoice": "Download Invoice",
-    "clearDuesToDownload": "Clear Dues to Download"
+    "clearDuesToDownload": "Clear Dues to Download",
+    "invoiceError": "Could not generate the invoice. Please try again."
   },
   "requests": {
     "title": "Recent Requests",
@@ -127,5 +130,13 @@
     "discovering": "Discovering available services...",
     "servicesNote": "These services and menus will be available to request directly from your dashboard once you check-in!"
   },
-  "precheckinNote": "To ensure a smooth arrival, please complete your pre-checkin before you arrive."
+  "precheckinNote": "To ensure a smooth arrival, please complete your pre-checkin before you arrive.",
+  "alerts": {
+    "noStay": "No stay available.",
+    "serviceAfterCheckin": "You can request services after you check-in to your room. We look forward to welcoming you!",
+    "stayConcluded": "This stay has already concluded.",
+    "noRequestsUpcoming": "You have no requests to track for an upcoming stay.",
+    "checkoutDuringStay": "Express checkout is available during your stay.",
+    "checkoutPending": "Your checkout request is already pending approval. Thank you!"
+  }
 }

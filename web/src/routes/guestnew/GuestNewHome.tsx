@@ -375,7 +375,7 @@ export default function GuestNewHome() {
     const handleActionClick = (e: React.MouseEvent, action: 'request_service' | 'track_requests' | 'checkout' | 'call_reception' | 'whatsapp_reception' | 'email_reception') => {
         if (!currentStay) {
             e.preventDefault();
-            alert("No stay available.");
+            alert(t("home:alerts.noStay", "No stay available."));
             return;
         }
 
@@ -387,29 +387,29 @@ export default function GuestNewHome() {
             case 'request_service':
                 if (isUpcoming) {
                     e.preventDefault();
-                    alert("You can request services after you check-in to your room. We look forward to welcoming you!");
+                    alert(t("home:alerts.serviceAfterCheckin", "You can request services after you check-in to your room. We look forward to welcoming you!"));
                 } else if (isPast) {
                     e.preventDefault();
-                    alert("This stay has already concluded.");
+                    alert(t("home:alerts.stayConcluded", "This stay has already concluded."));
                 }
                 break;
             case 'track_requests':
                 if (isUpcoming) {
                     e.preventDefault();
-                    alert("You have no requests to track for an upcoming stay.");
+                    alert(t("home:alerts.noRequestsUpcoming", "You have no requests to track for an upcoming stay."));
                 }
                 // Past stays CAN track requests (to view history)
                 break;
             case 'checkout':
                 if (isUpcoming) {
                     e.preventDefault();
-                    alert("Express checkout is available during your stay.");
+                    alert(t("home:alerts.checkoutDuringStay", "Express checkout is available during your stay."));
                 } else if (isPast) {
                     e.preventDefault();
-                    alert("This stay has already concluded.");
+                    alert(t("home:alerts.stayConcluded", "This stay has already concluded."));
                 } else if (statusLower === 'checkout_requested') {
                     e.preventDefault();
-                    alert("Your checkout request is already pending approval. Thank you!");
+                    alert(t("home:alerts.checkoutPending", "Your checkout request is already pending approval. Thank you!"));
                 }
                 break;
             case 'call_reception':
@@ -417,7 +417,7 @@ export default function GuestNewHome() {
             case 'email_reception':
                 if (isPast) {
                     e.preventDefault();
-                    alert("This stay has already concluded.");
+                    alert(t("home:alerts.stayConcluded", "This stay has already concluded."));
                 }
                 // allow upcoming stays to call reception
                 break;

@@ -66,12 +66,18 @@ export function publishableKey(): string {
  */
 export function isServiceToken(token: string): boolean {
   if (!token) return false;
-  // Exact match to a known key VALUE only. These functions run verify_jwt = false
-  // (Phase C), so the gateway does NOT verify the bearer's signature — a JWT
-  // role-claim decode would be forgeable here, so we must NOT trust it. The caller
-  // (the cron invoker) passes the new sb_secret_ from Vault, an opaque stable string
-  // that matches SUPABASE_SECRET_KEYS exactly. Legacy match kept until legacy keys
-  // are revoked (Phase D cleanup).
+  // These functions run verify_jwt = false (Phase C), so the gateway does NOT verify
+  // the bearer's signature — a JWT role-claim decode would be forgeable, so we match
+  // exact secret VALUES only.
+  //
+  // PRIMARY: a dedicated cron secret set to the SAME value on both the edge env
+  // (`supabase secrets set VA_CRON_SECRET`) and Vault (what the cron invoker passes).
+  // They match by construction — independent of the sb_secret_ representation, which
+  // differs between the management API (len 67) and the edge-injected
+  // SUPABASE_SECRET_KEYS (len 41).
+  const cron = Deno.env.get("VA_CRON_SECRET") ?? "";
+  if (cron !== "" && token === cron) return true;
+  // FALLBACK: exact sb_secret_ / legacy match (kept for safety + transition).
   const legacy =
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ??
     Deno.env.get("SUPABASE_SERVICE_ROLE") ??

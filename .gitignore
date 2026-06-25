@@ -26,3 +26,12 @@ supabase/.temp/
 # ─── Smoke-test screenshots at repo root ─────────────────────────────────────
 # Keep PNGs inside web/public/, docs/, etc. — only block loose root-level ones
 /*.png
+
+# ─── Loose root-level smoke-test images + local demo SQL (not committed) ──────
+/*.jpeg
+/*.jpg
+/dashboard-demo-*.sql
+
+# ─── Generated portal-guide exports + their screenshots (local only) ─────────
+docs/screenshots/
+docs/vaiyu-portal*

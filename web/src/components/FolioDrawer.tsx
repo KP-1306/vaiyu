@@ -4,6 +4,7 @@ import { supabase } from "../lib/supabase";
 import { RazorpayServiceError } from "../services/razorpayService";
 import { getRazorpayClient } from "../services/razorpayClient";
 import { initialsOf } from "../utils/initials";
+import { useOwnerT, useOwnerLocale } from "../i18n/useOwnerT";
 
 interface FolioDrawerProps {
     isOpen: boolean;
@@ -52,6 +53,8 @@ interface ArrivalEvent {
 }
 
 export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: FolioDrawerProps) {
+    const t = useOwnerT("owner-folio");
+    const locale = useOwnerLocale();
     const [activeTab, setActiveTab] = useState<"SUMMARY" | "FOLIO" | "PAYMENTS" | "ACTIVITY">("FOLIO");
     const [entries, setEntries] = useState<FolioEntry[]>([]);
     const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -120,11 +123,11 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
     async function submitRefund() {
         if (!refundFor) return;
         if (refundAmount === "" || Number(refundAmount) <= 0) {
-            setRefundError("Refund amount must be > 0");
+            setRefundError(t("errors.refundGtZero", "Refund amount must be > 0"));
             return;
         }
         if (Number(refundAmount) > refundFor.amount + 0.001) {
-            setRefundError(`Cannot refund more than the original amount (₹${refundFor.amount.toLocaleString()})`);
+            setRefundError(t("errors.refundMax", "Cannot refund more than the original amount (₹{{amount}})", { amount: refundFor.amount.toLocaleString() }));
             return;
         }
         setRefundBusy(true);
@@ -228,7 +231,7 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
             fetchFolioAndTransactions(); // Refresh entries
             onMutated?.(); // refresh the parent board immediately (staff action)
         } else {
-            setPaymentError("Payment failed: " + error.message);
+            setPaymentError(t("errors.paymentFailedPrefix", "Payment failed: {{msg}}", { msg: error.message }));
         }
         setPaymentLoading(false);
     };
@@ -253,8 +256,8 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
             const outcome = await rzp.openRazorpayCheckout(order);
             if (!outcome.ok) {
                 setPaymentError(outcome.reason === "DISMISSED"
-                    ? "Payment cancelled — no money has moved."
-                    : `Payment failed: ${outcome.error?.description ?? "Razorpay rejected the payment"}.`);
+                    ? t("errors.paymentCancelled", "Payment cancelled — no money has moved.")
+                    : t("errors.paymentFailedPrefix", "Payment failed: {{msg}}", { msg: (outcome.error?.description ?? t("errors.razorpayRejected", "Razorpay rejected the payment")) + "." }));
                 return;
             }
             await rzp.verifyWalkInPayment({
@@ -270,7 +273,7 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
             fetchFolioAndTransactions();
             onMutated?.(); // refresh the parent board immediately (staff action)
         } catch (err: any) {
-            const msg = err instanceof RazorpayServiceError ? err.message : (err?.message ?? "Payment failed");
+            const msg = err instanceof RazorpayServiceError ? err.message : (err?.message ?? t("errors.paymentFailed", "Payment failed"));
             setPaymentError(msg);
         } finally {
             setPaymentLoading(false);
@@ -290,8 +293,8 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
                 id: `synthetic-checkin-${arrival.id}`,
                 type: "CHECK-IN",
                 timestamp: new Date(arrival.actual_checkin_at),
-                desc: "Guest checked in",
-                subDesc: `Room ${arrival.room_numbers || "assigned"}`,
+                desc: t("timeline.guestCheckedIn", "Guest checked in"),
+                subDesc: t("timeline.roomSub", "Room {{room}}", { room: arrival.room_numbers || t("timeline.assigned", "assigned") }),
                 icon: "👋",
                 color: "text-[#D4A373]",
                 isSynthetic: true
@@ -304,8 +307,8 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
                 id: `synthetic-checkout-${arrival.id}`,
                 type: "CHECK-OUT",
                 timestamp: new Date(arrival.actual_checkout_at),
-                desc: "Guest checked out",
-                subDesc: "Stay completed",
+                desc: t("timeline.guestCheckedOut", "Guest checked out"),
+                subDesc: t("timeline.stayCompleted", "Stay completed"),
                 icon: "🚪",
                 color: "text-[#D4A373]",
                 isSynthetic: true
@@ -318,8 +321,8 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
                 id: `synthetic-created-${arrival.id}`,
                 type: "BOOKING",
                 timestamp: new Date(arrival.created_at),
-                desc: "Booking created",
-                subDesc: `Via ${arrival.source?.replace('_', ' ') || "Direct Entry"}`,
+                desc: t("timeline.bookingCreated", "Booking created"),
+                subDesc: t("timeline.via", "Via {{source}}", { source: arrival.source?.replace('_', ' ') || t("timeline.directEntry", "Direct Entry") }),
                 icon: "📅",
                 color: "text-[#F3E6D0]/30",
                 isSynthetic: true
@@ -365,8 +368,8 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
             else if (e.event_category === "PAYMENT") {
                 color = "text-blue-400";
                 icon = "💳";
-                const collectorName = e.actor_id && staffNames[e.actor_id] ? staffNames[e.actor_id] : "System";
-                subDesc += ` • Collected by <span class="capitalize">${collectorName}</span>`;
+                const collectorName = e.actor_id && staffNames[e.actor_id] ? staffNames[e.actor_id] : t("payments.system", "System");
+                subDesc += ` • ${t("timeline.collectedBy", "Collected by {{name}}", { name: `<span class="capitalize">${collectorName}</span>` })}`;
             }
             else if (e.event_category === "SERVICE") {
                 color = "text-purple-400";
@@ -418,7 +421,7 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
             if (timeDiff !== 0) return timeDiff;
             return (a.sort_priority || 0) - (b.sort_priority || 0);
         });
-    }, [activityStream, entries, staffNames]);
+    }, [activityStream, entries, staffNames, t]);
 
     if (!isOpen || !arrival) return null;
 
@@ -447,6 +450,10 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
     // Let's rely on the real-time entries we just fetched.
     const outstandingBalance = Math.max(0, totalCharges - totalPayments);
 
+    const nightCount = Math.max(1, Math.round(
+        (new Date(arrival.scheduled_checkout_at).getTime() - new Date(arrival.scheduled_checkin_at).getTime()) / (1000 * 60 * 60 * 24)
+    ));
+
     return (
         <div className="fixed inset-0 z-50 flex justify-end">
             {/* Backdrop */}
@@ -467,9 +474,9 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
                         <div>
                             <h2 className="text-xl font-bold tracking-tight text-white mb-0.5">{arrival.guest_name}</h2>
                             <p className="text-xs text-[#D4A373] font-medium flex items-center gap-1.5 opacity-90">
-                                {arrival.room_numbers || "Unassigned"} · {Math.max(1, Math.round((new Date(arrival.scheduled_checkout_at).getTime() - new Date(arrival.scheduled_checkin_at).getTime()) / (1000 * 60 * 60 * 24)))} Nights
+                                {arrival.room_numbers || t("header.unassigned", "Unassigned")} · {t("header.nights", "{{count}} Nights", { count: nightCount })}
                                 <span className="text-orange-900/40">|</span>
-                                {new Date(arrival.scheduled_checkin_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })} - {new Date(arrival.scheduled_checkout_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                                {new Date(arrival.scheduled_checkin_at).toLocaleDateString(locale, { month: "short", day: "numeric" })} - {new Date(arrival.scheduled_checkout_at).toLocaleDateString(locale, { month: "short", day: "numeric" })}
                             </p>
                         </div>
                     </div>
@@ -477,13 +484,13 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
 
                 {/* Tabs */}
                 <div className="flex px-6 items-center gap-6 border-b border-orange-900/30 text-sm font-medium mt-1">
-                    {["SUMMARY", "FOLIO", "PAYMENTS", "ACTIVITY"].map(tab => (
+                    {(["SUMMARY", "FOLIO", "PAYMENTS", "ACTIVITY"] as const).map(tab => (
                         <button
                             key={tab}
-                            onClick={() => setActiveTab(tab as any)}
+                            onClick={() => setActiveTab(tab)}
                             className={`py-3 relative ${activeTab === tab ? "text-[#D4A373]" : "text-[#F3E6D0]/50 hover:text-[#F3E6D0]/80"}`}
                         >
-                            {tab.charAt(0) + tab.slice(1).toLowerCase()}
+                            {t("tabs." + tab.toLowerCase(), tab.charAt(0) + tab.slice(1).toLowerCase())}
                             {activeTab === tab && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#D4A373] rounded-t-full" />}
                         </button>
                     ))}
@@ -496,7 +503,7 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
 
                             {/* Outstanding Balance Banner */}
                             <div className="flex items-center justify-between text-lg">
-                                <span className="text-[#F3E6D0]/70 font-medium">Outstanding Balance:</span>
+                                <span className="text-[#F3E6D0]/70 font-medium">{t("outstanding", "Outstanding Balance:")}</span>
                                 <span className={`text-2xl font-bold ${outstandingBalance > 0 ? "text-[#E65F5C]" : "text-[#78B48B]"}`}>
                                     ₹ {outstandingBalance.toLocaleString('en-IN')}
                                 </span>
@@ -505,52 +512,52 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
                             {/* Folio Entries Table */}
                             <div className="bg-[#1A130C] rounded-xl border border-orange-900/20 p-5 space-y-4">
                                 <div className="flex items-center justify-between mb-2">
-                                    <h3 className="text-sm font-bold tracking-wide text-[#F3E6D0]/60 uppercase">Folio Entries</h3>
+                                    <h3 className="text-sm font-bold tracking-wide text-[#F3E6D0]/60 uppercase">{t("folioEntries", "Folio Entries")}</h3>
                                     <button className="text-[#D4A373] hover:text-[#E8BA87] flex items-center justify-center w-5 h-5 rounded-full border border-orange-900/50">i</button>
                                 </div>
 
                                 {loading ? (
-                                    <p className="text-sm text-[#F3E6D0]/40 text-center py-4">Loading folio...</p>
+                                    <p className="text-sm text-[#F3E6D0]/40 text-center py-4">{t("loadingFolio", "Loading folio...")}</p>
                                 ) : (
                                     <div className="space-y-4 text-[15px]">
                                         {/* Summarized Entries for cleaner look */}
                                         <div className="flex justify-between items-center text-[#F3E6D0]/90">
-                                            <span>Room Charges</span>
+                                            <span>{t("lines.roomCharges", "Room Charges")}</span>
                                             <span>₹ {roomCharges.toLocaleString('en-IN')}</span>
                                         </div>
                                         {discountAmount > 0 && (
                                             <div className="flex justify-between items-center text-[#78B48B]">
-                                                <span>Discount</span>
+                                                <span>{t("lines.discount", "Discount")}</span>
                                                 <span>(-₹ {discountAmount.toLocaleString('en-IN')})</span>
                                             </div>
                                         )}
                                         {surchargeAmount > 0 && (
                                             <div className="flex justify-between items-center text-[#F3E6D0]/90">
-                                                <span>Surcharge</span>
+                                                <span>{t("lines.surcharge", "Surcharge")}</span>
                                                 <span>₹ {surchargeAmount.toLocaleString('en-IN')}</span>
                                             </div>
                                         )}
                                         {taxAmount > 0 && (
                                             <div className="flex justify-between items-center text-[#F3E6D0]/90">
-                                                <span>Tax</span>
+                                                <span>{t("lines.tax", "Tax")}</span>
                                                 <span>₹ {taxAmount.toLocaleString('en-IN')}</span>
                                             </div>
                                         )}
                                         {foodCharges > 0 && (
                                             <div className="flex justify-between items-center text-[#F3E6D0]/90">
-                                                <span>Food / F&B</span>
+                                                <span>{t("lines.food", "Food / F&B")}</span>
                                                 <span>₹ {foodCharges.toLocaleString('en-IN')}</span>
                                             </div>
                                         )}
                                         {serviceCharges > 0 && (
                                             <div className="flex justify-between items-center text-[#F3E6D0]/90">
-                                                <span>Service</span>
+                                                <span>{t("lines.service", "Service")}</span>
                                                 <span>₹ {serviceCharges.toLocaleString('en-IN')}</span>
                                             </div>
                                         )}
                                         {totalPayments > 0 && (
                                             <div className="flex justify-between items-center text-[#F3E6D0]/70">
-                                                <span>Payments Received</span>
+                                                <span>{t("lines.paymentsReceived", "Payments Received")}</span>
                                                 <span className="text-[#78B48B]">(-₹ {totalPayments.toLocaleString('en-IN')})</span>
                                             </div>
                                         )}
@@ -558,18 +565,18 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
                                         <div className="w-full h-px bg-orange-900/30 my-2" />
 
                                         <div className="flex justify-between items-center text-[#F3E6D0]/80">
-                                            <span>Total Charges</span>
+                                            <span>{t("lines.totalCharges", "Total Charges")}</span>
                                             <span>₹ {totalCharges.toLocaleString('en-IN')}</span>
                                         </div>
                                         <div className="flex justify-between items-center text-[#F3E6D0]/80">
-                                            <span>Total Payments</span>
+                                            <span>{t("lines.totalPayments", "Total Payments")}</span>
                                             <span>(-₹ {totalPayments.toLocaleString('en-IN')})</span>
                                         </div>
 
                                         <div className="w-full h-px bg-orange-900/30 my-2" />
 
                                         <div className="flex justify-between items-center text-white font-bold text-base pt-1">
-                                            <span>Outstanding Balance</span>
+                                            <span>{t("lines.outstandingBalance", "Outstanding Balance")}</span>
                                             <span className={outstandingBalance > 0 ? "text-[#E65F5C]" : "text-[#78B48B]"}>
                                                 ₹ {outstandingBalance.toLocaleString('en-IN')}
                                             </span>
@@ -584,7 +591,7 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
                                     onClick={() => setShowCollectPayment(true)}
                                     className="w-full py-4 mt-6 bg-gradient-to-r from-[#B98357] to-[#8C5D35] text-white font-bold rounded-xl shadow-[0_0_20px_rgba(185,131,87,0.3)] hover:shadow-[0_0_25px_rgba(185,131,87,0.5)] transition-all flex items-center justify-center text-[15px]"
                                 >
-                                    Collect Payment
+                                    {t("collectPayment", "Collect Payment")}
                                 </button>
                             )}
 
@@ -595,7 +602,7 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
                         <div className="space-y-6">
                             {/* Outstanding Balance Banner */}
                             <div className="flex items-center justify-between text-lg">
-                                <span className="text-[#F3E6D0]/70 font-medium">Outstanding Balance:</span>
+                                <span className="text-[#F3E6D0]/70 font-medium">{t("outstanding", "Outstanding Balance:")}</span>
                                 <span className={`text-2xl font-bold ${outstandingBalance > 0 ? "text-[#E65F5C]" : "text-[#78B48B]"}`}>
                                     ₹ {outstandingBalance.toLocaleString('en-IN')}
                                 </span>
@@ -607,70 +614,70 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
                                     onClick={() => setShowCollectPayment(true)}
                                     className="w-full py-4 bg-gradient-to-r from-[#B98357] to-[#8C5D35] text-white font-bold rounded-xl shadow-[0_0_20px_rgba(185,131,87,0.3)] hover:shadow-[0_0_25px_rgba(185,131,87,0.5)] transition-all flex items-center justify-center text-[15px]"
                                 >
-                                    Collect Payment
+                                    {t("collectPayment", "Collect Payment")}
                                 </button>
                             )}
 
                             {/* Stay Info Card */}
                             <div className="bg-[#1A130C] rounded-xl border border-orange-900/20 p-5 space-y-4">
-                                <h3 className="text-sm font-bold tracking-wide text-[#F3E6D0]/60 uppercase border-b border-orange-900/30 pb-2">Stay Information</h3>
+                                <h3 className="text-sm font-bold tracking-wide text-[#F3E6D0]/60 uppercase border-b border-orange-900/30 pb-2">{t("summary.stayInfo", "Stay Information")}</h3>
                                 <div className="grid grid-cols-2 gap-y-4 gap-x-6 text-[14px]">
                                     <div>
-                                        <div className="text-[#F3E6D0]/50 mb-1 text-xs">Check-in</div>
-                                        <div className="text-[#F3E6D0]/90 font-medium">{new Date(arrival.scheduled_checkin_at).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</div>
+                                        <div className="text-[#F3E6D0]/50 mb-1 text-xs">{t("summary.checkin", "Check-in")}</div>
+                                        <div className="text-[#F3E6D0]/90 font-medium">{new Date(arrival.scheduled_checkin_at).toLocaleDateString(locale, { weekday: "short", month: "short", day: "numeric" })}</div>
                                     </div>
                                     <div>
-                                        <div className="text-[#F3E6D0]/50 mb-1 text-xs">Checkout</div>
-                                        <div className="text-[#F3E6D0]/90 font-medium">{new Date(arrival.scheduled_checkout_at).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</div>
+                                        <div className="text-[#F3E6D0]/50 mb-1 text-xs">{t("summary.checkout", "Checkout")}</div>
+                                        <div className="text-[#F3E6D0]/90 font-medium">{new Date(arrival.scheduled_checkout_at).toLocaleDateString(locale, { weekday: "short", month: "short", day: "numeric" })}</div>
                                     </div>
                                     <div>
-                                        <div className="text-[#F3E6D0]/50 mb-1 text-xs">Room</div>
+                                        <div className="text-[#F3E6D0]/50 mb-1 text-xs">{t("summary.room", "Room")}</div>
                                         <div className="text-[#F3E6D0]/90 font-medium flex items-center gap-2">
-                                            {arrival.room_numbers || "Unassigned"}
+                                            {arrival.room_numbers || t("header.unassigned", "Unassigned")}
                                             {arrival.arrival_operational_state === "READY_TO_CHECKIN" && (
                                                 <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
                                             )}
                                         </div>
                                     </div>
                                     <div>
-                                        <div className="text-[#F3E6D0]/50 mb-1 text-xs">Guests</div>
-                                        <div className="text-[#F3E6D0]/90 font-medium">{arrival.guest_count || 1} Person</div>
+                                        <div className="text-[#F3E6D0]/50 mb-1 text-xs">{t("summary.guests", "Guests")}</div>
+                                        <div className="text-[#F3E6D0]/90 font-medium">{t("summary.person", "{{count}} Person", { count: arrival.guest_count || 1 })}</div>
                                     </div>
                                     <div className="col-span-2 mt-1">
-                                        <div className="text-[#F3E6D0]/50 mb-1 text-xs">Booking Ref / Source</div>
-                                        <div className="text-[#F3E6D0]/90 font-medium">{arrival.booking_code} <span className="text-[#D4A373]/80 mx-1">•</span> {arrival.arrival_badge === "OTA" ? "OTA Booking" : "Direct Booking"}</div>
+                                        <div className="text-[#F3E6D0]/50 mb-1 text-xs">{t("summary.bookingRefSource", "Booking Ref / Source")}</div>
+                                        <div className="text-[#F3E6D0]/90 font-medium">{arrival.booking_code} <span className="text-[#D4A373]/80 mx-1">•</span> {arrival.arrival_badge === "OTA" ? t("summary.otaBooking", "OTA Booking") : t("summary.directBooking", "Direct Booking")}</div>
                                     </div>
                                 </div>
                             </div>
 
                             {/* Quick KPIs Card */}
                             <div className="bg-[#1A130C] rounded-xl border border-orange-900/20 p-5 space-y-4">
-                                <h3 className="text-sm font-bold tracking-wide text-[#F3E6D0]/60 uppercase border-b border-orange-900/30 pb-2">Quick KPIs</h3>
+                                <h3 className="text-sm font-bold tracking-wide text-[#F3E6D0]/60 uppercase border-b border-orange-900/30 pb-2">{t("summary.quickKpis", "Quick KPIs")}</h3>
                                 <div className="space-y-3">
                                     <div className="flex justify-between items-center bg-[#231A13] p-3 rounded-lg border border-orange-900/10">
-                                        <span className="text-[#F3E6D0]/80 text-sm">VIP Status</span>
+                                        <span className="text-[#F3E6D0]/80 text-sm">{t("summary.vipStatus", "VIP Status")}</span>
                                         <span className={`px-2 py-0.5 rounded text-xs font-bold ${arrival.vip_flag ? "bg-purple-900/50 text-purple-300" : "bg-gray-800 text-gray-400"}`}>
-                                            {arrival.vip_flag ? "VIP STAY" : "STANDARD"}
+                                            {arrival.vip_flag ? t("summary.vipStay", "VIP STAY") : t("summary.standard", "STANDARD")}
                                         </span>
                                     </div>
                                     <div className="flex justify-between items-center bg-[#231A13] p-3 rounded-lg border border-orange-900/10">
-                                        <span className="text-[#F3E6D0]/80 text-sm">Room Status</span>
+                                        <span className="text-[#F3E6D0]/80 text-sm">{t("summary.roomStatus", "Room Status")}</span>
                                         {(() => {
                                             const state = arrival.arrival_operational_state;
-                                            let label = "WAITING";
+                                            let label = t("summary.roomState.waiting", "WAITING");
                                             let color = "bg-amber-900/50 text-amber-300";
 
                                             if (state === "CHECKED_IN" || state === "PARTIALLY_ARRIVED") {
-                                                label = "INHOUSE";
+                                                label = t("summary.roomState.inhouse", "INHOUSE");
                                                 color = "bg-emerald-900/50 text-emerald-300";
                                             } else if (state === "READY_TO_CHECKIN") {
-                                                label = "READY";
+                                                label = t("summary.roomState.ready", "READY");
                                                 color = "bg-emerald-900/50 text-emerald-300";
                                             } else if (state === "WAITING_HOUSEKEEPING") {
-                                                label = "DIRTY";
+                                                label = t("summary.roomState.dirty", "DIRTY");
                                                 color = "bg-red-900/50 text-red-300";
                                             } else if (state === "WAITING_ROOM_ASSIGNMENT" || state === "NO_ROOMS") {
-                                                label = "UNASSIGNED";
+                                                label = t("summary.roomState.unassigned", "UNASSIGNED");
                                                 color = "bg-slate-800 text-slate-400";
                                             }
 
@@ -690,19 +697,19 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
                     {activeTab === "PAYMENTS" && (
                         <div className="space-y-4">
                             <div className="flex items-center justify-between">
-                                <h3 className="text-lg font-bold text-[#F3E6D0]">Transaction History</h3>
+                                <h3 className="text-lg font-bold text-[#F3E6D0]">{t("payments.title", "Transaction History")}</h3>
                                 <span className="text-xs font-semibold text-[#F3E6D0]/50 bg-orange-900/20 px-2 py-1 rounded">
-                                    {transactions.length} Records
+                                    {t("payments.records", "{{count}} Records", { count: transactions.length })}
                                 </span>
                             </div>
 
                             {loading ? (
-                                <p className="text-sm text-[#F3E6D0]/40 text-center py-8">Loading transactions...</p>
+                                <p className="text-sm text-[#F3E6D0]/40 text-center py-8">{t("payments.loading", "Loading transactions...")}</p>
                             ) : transactions.length === 0 ? (
                                 <div className="text-center py-10 bg-[#1A130C] rounded-xl border border-orange-900/20">
                                     <div className="text-4xl mb-3 opacity-50">🧾</div>
-                                    <h4 className="text-[#F3E6D0]/80 font-bold mb-1">No Payments Yet</h4>
-                                    <p className="text-[#F3E6D0]/40 text-sm">No transactions have been recorded for this stay.</p>
+                                    <h4 className="text-[#F3E6D0]/80 font-bold mb-1">{t("payments.emptyTitle", "No Payments Yet")}</h4>
+                                    <p className="text-[#F3E6D0]/40 text-sm">{t("payments.emptyBody", "No transactions have been recorded for this stay.")}</p>
                                 </div>
                             ) : (
                                 <div className="space-y-3">
@@ -719,11 +726,11 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
                                                     <div>
                                                         <div className="font-bold text-[#F3E6D0]/90 text-[15px] flex items-center gap-2">
                                                             ₹ {tx.amount.toLocaleString('en-IN')}
-                                                            {tx.status === "REFUNDED" && <span className="text-[10px] bg-amber-500/20 text-amber-500 px-1.5 py-0.5 rounded uppercase tracking-wider">Refunded</span>}
-                                                            {tx.status === "FAILED" && <span className="text-[10px] bg-red-500/20 text-red-500 px-1.5 py-0.5 rounded uppercase tracking-wider">Failed</span>}
+                                                            {tx.status === "REFUNDED" && <span className="text-[10px] bg-amber-500/20 text-amber-500 px-1.5 py-0.5 rounded uppercase tracking-wider">{t("payments.refunded", "Refunded")}</span>}
+                                                            {tx.status === "FAILED" && <span className="text-[10px] bg-red-500/20 text-red-500 px-1.5 py-0.5 rounded uppercase tracking-wider">{t("payments.failed", "Failed")}</span>}
                                                         </div>
                                                         <div className="text-xs text-[#F3E6D0]/50 mt-0.5">
-                                                            {new Date(tx.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                                                            {new Date(tx.created_at).toLocaleDateString(locale, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -736,9 +743,9 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
 
                                             <div className="mt-3 pt-3 border-t border-orange-900/20 flex items-center justify-between text-xs">
                                                 <div className="flex items-center gap-1.5 text-[#F3E6D0]/40">
-                                                    <span className="opacity-70">By:</span>
+                                                    <span className="opacity-70">{t("payments.by", "By:")}</span>
                                                     <span className="text-[#F3E6D0]/70 font-medium capitalize">
-                                                        {tx.collected_by && staffNames[tx.collected_by] ? staffNames[tx.collected_by] : "System"}
+                                                        {tx.collected_by && staffNames[tx.collected_by] ? staffNames[tx.collected_by] : t("payments.system", "System")}
                                                     </span>
                                                 </div>
                                                 <div className="flex items-center gap-3">
@@ -753,7 +760,7 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
                                                             title="Refund this payment via Razorpay (reverse_all)"
                                                         >
                                                             <RotateCcw className="w-3 h-3" />
-                                                            Refund
+                                                            {t("payments.refund", "Refund")}
                                                         </button>
                                                     )}
                                                     {tx.reference_id && (
@@ -774,7 +781,7 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
                                     onClick={() => setShowCollectPayment(true)}
                                     className="w-full py-4 mt-4 bg-[#231A13] border border-[#D4A373]/30 text-[#D4A373] hover:bg-[#D4A373]/10 font-bold rounded-xl transition-all flex items-center justify-center text-[15px]"
                                 >
-                                    + Record New Payment
+                                    {t("payments.recordNew", "+ Record New Payment")}
                                 </button>
                             )}
                         </div>
@@ -783,19 +790,19 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
                     {activeTab === "ACTIVITY" && (
                         <div className="space-y-4">
                             <div className="flex items-center justify-between mb-2">
-                                <h3 className="text-lg font-bold text-[#F3E6D0]">Operational Timeline</h3>
+                                <h3 className="text-lg font-bold text-[#F3E6D0]">{t("activity.title", "Operational Timeline")}</h3>
                                 <span className="text-xs font-semibold text-[#F3E6D0]/50 bg-orange-900/20 px-2 py-1 rounded">
-                                    {timeline.length} Events
+                                    {t("activity.events", "{{count}} Events", { count: timeline.length })}
                                 </span>
                             </div>
 
                             {loading ? (
-                                <p className="text-sm text-[#F3E6D0]/40 text-center py-8">Loading timeline...</p>
+                                <p className="text-sm text-[#F3E6D0]/40 text-center py-8">{t("activity.loading", "Loading timeline...")}</p>
                             ) : timeline.length === 0 ? (
                                 <div className="text-center py-10 bg-[#1A130C] rounded-xl border border-orange-900/20">
                                     <div className="text-4xl mb-3 opacity-50">⏳</div>
-                                    <h4 className="text-[#F3E6D0]/80 font-bold mb-1">No Activity Yet</h4>
-                                    <p className="text-[#F3E6D0]/40 text-sm">No events have been recorded for this stay.</p>
+                                    <h4 className="text-[#F3E6D0]/80 font-bold mb-1">{t("activity.emptyTitle", "No Activity Yet")}</h4>
+                                    <p className="text-[#F3E6D0]/40 text-sm">{t("activity.emptyBody", "No events have been recorded for this stay.")}</p>
                                 </div>
                             ) : (
                                 <div className="relative pl-3 space-y-6 before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-orange-900/50 before:via-orange-900/20 before:to-transparent">
@@ -811,7 +818,7 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
                                                 <div className="mb-2">
                                                     <div className={`font-mono text-xs uppercase tracking-wider mb-1 ${item.color}`}>{item.type}</div>
                                                     <time className="text-xs font-medium text-[#F3E6D0]/50 block">
-                                                        {item.timestamp.toLocaleDateString("en-US", { month: "short", day: "numeric" })} • {item.timestamp.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
+                                                        {item.timestamp.toLocaleDateString(locale, { month: "short", day: "numeric" })} • {item.timestamp.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" })}
                                                     </time>
                                                 </div>
                                                 <div className="text-[#F3E6D0]/90 text-[15px] leading-snug">
@@ -830,7 +837,7 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
                 </div>
 
                 <div className="p-6 border-t border-orange-900/30 text-xs text-[#F3E6D0]/40 text-center mt-auto">
-                    Need assistance? Call Front Desk at +91 01234 56789 <span className="inline-flex w-4 h-4 rounded-full border border-orange-900/50 items-center justify-center ml-1">?</span>
+                    {t("footer", "Need assistance? Call Front Desk at {{phone}}", { phone: "+91 01234 56789" })} <span className="inline-flex w-4 h-4 rounded-full border border-orange-900/50 items-center justify-center ml-1">?</span>
                 </div>
             </div>
 
@@ -841,7 +848,7 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
                     <div className="relative w-full max-w-sm bg-[#FAF8F5] text-gray-900 shadow-xl rounded-2xl overflow-hidden animate-in zoom-in-95 duration-200">
                         {/* Header */}
                         <div className="px-5 py-4 flex items-center justify-between border-b border-gray-200 bg-[#FAF8F5]">
-                            <h3 className="text-lg font-bold text-gray-900 tracking-tight">Collect Payment</h3>
+                            <h3 className="text-lg font-bold text-gray-900 tracking-tight">{t("collectPayment", "Collect Payment")}</h3>
                             <button onClick={() => setShowCollectPayment(false)} className="text-gray-400 hover:text-gray-600 transition">
                                 <X className="w-5 h-5" />
                             </button>
@@ -853,13 +860,13 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
                             </div>
                             <div className="leading-snug">
                                 <div className="font-bold text-[15px]">{arrival.guest_name}</div>
-                                <div className="text-xs text-gray-500 font-medium">{arrival.room_numbers || "Unassigned"} — {arrival.booking_code}</div>
+                                <div className="text-xs text-gray-500 font-medium">{arrival.room_numbers || t("header.unassigned", "Unassigned")} — {arrival.booking_code}</div>
                             </div>
                         </div>
 
                         <div className="px-5 py-6 space-y-5 bg-white">
                             <div className="flex items-center justify-between">
-                                <span className="text-sm font-medium text-gray-500">Outstanding Balance:</span>
+                                <span className="text-sm font-medium text-gray-500">{t("outstanding", "Outstanding Balance:")}</span>
                                 <span className="text-2xl font-bold text-[#E65F5C]">₹ {outstandingBalance.toLocaleString('en-IN')}</span>
                             </div>
 
@@ -867,13 +874,13 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
                                 one-tap tiles (no dropdown). These RECORD a payment
                                 already received; they do not move money. */}
                             <div>
-                                <div className="text-xs font-bold text-gray-400 mb-2 uppercase tracking-wide">Payment Method</div>
+                                <div className="text-xs font-bold text-gray-400 mb-2 uppercase tracking-wide">{t("collectModal.method", "Payment Method")}</div>
                                 <div className="grid grid-cols-2 gap-2">
                                     {[
-                                        { id: "CASH", label: "Cash", icon: "💵" },
-                                        { id: "UPI", label: "UPI", icon: "📱" },
-                                        { id: "CARD", label: "Card", icon: "💳" },
-                                        { id: "BANK_TRANSFER", label: "Bank Transfer", icon: "🏦" },
+                                        { id: "CASH", labelKey: "collectModal.cash", labelEn: "Cash", icon: "💵" },
+                                        { id: "UPI", labelKey: "collectModal.upi", labelEn: "UPI", icon: "📱" },
+                                        { id: "CARD", labelKey: "collectModal.card", labelEn: "Card", icon: "💳" },
+                                        { id: "BANK_TRANSFER", labelKey: "collectModal.bankTransfer", labelEn: "Bank Transfer", icon: "🏦" },
                                     ].map(pm => {
                                         const active = paymentMethod === pm.id;
                                         return (
@@ -885,14 +892,14 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
                                                     : "border-gray-200 bg-[#F9F9F9] text-gray-700 hover:border-gray-300"}`}
                                             >
                                                 <span className="text-lg leading-none">{pm.icon}</span>
-                                                <span className="flex-1">{pm.label}</span>
+                                                <span className="flex-1">{t(pm.labelKey, pm.labelEn)}</span>
                                                 {active && <CheckCircle2 className="w-4 h-4 text-amber-600 flex-shrink-0" />}
                                             </button>
                                         );
                                     })}
                                 </div>
                                 <div className="mt-2 text-[11px] text-gray-400 leading-snug">
-                                    Records a payment already received from the guest.
+                                    {t("collectModal.recordsHint", "Records a payment already received from the guest.")}
                                 </div>
                             </div>
 
@@ -901,7 +908,7 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
                                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">₹</span>
                                     <input
                                         type="number"
-                                        placeholder="Enter amount"
+                                        placeholder={t("collectModal.enterAmount", "Enter amount")}
                                         value={paymentAmount}
                                         onChange={e => setPaymentAmount(e.target.value ? Number(e.target.value) : "")}
                                         className="w-full pl-9 pr-4 py-3 bg-[#F9F9F9] border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-600/30 font-semibold text-[15px] placeholder-gray-400"
@@ -909,7 +916,7 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
                                 </div>
                                 <input
                                     type="text"
-                                    placeholder="Enter a note (optional)"
+                                    placeholder={t("collectModal.enterNote", "Enter a note (optional)")}
                                     className="w-full px-4 py-3 bg-[#F9F9F9] border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-600/30 text-sm placeholder-gray-400"
                                 />
                                 {paymentError && (
@@ -924,7 +931,13 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
                                 disabled={paymentLoading || !paymentAmount || Number(paymentAmount) <= 0}
                                 className="w-full py-3.5 bg-gradient-to-br from-[#CD955B] to-[#AD763D] text-white font-bold text-[15px] rounded-xl shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                {paymentLoading ? "Processing…" : `Record ${paymentAmount ? "₹" + Number(paymentAmount).toLocaleString('en-IN') : "Payment"}`}
+                                {paymentLoading
+                                    ? t("collectModal.processing", "Processing…")
+                                    : t("collectModal.recordAmount", "Record {{amount}}", {
+                                        amount: paymentAmount
+                                            ? "₹" + Number(paymentAmount).toLocaleString('en-IN')
+                                            : t("collectModal.recordFallback", "Payment")
+                                    })}
                             </button>
 
                             {/* Online collection — secondary, only when Razorpay is
@@ -936,7 +949,7 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
                                 <div>
                                     <div className="flex items-center gap-3 mb-3">
                                         <div className="flex-1 h-px bg-gray-200" />
-                                        <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">or collect online</span>
+                                        <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">{t("collectModal.orOnline", "or collect online")}</span>
                                         <div className="flex-1 h-px bg-gray-200" />
                                     </div>
                                     <button
@@ -945,10 +958,12 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
                                         className="w-full py-3 flex items-center justify-center gap-2 bg-white border border-sky-300 text-sky-700 font-semibold text-[14px] rounded-xl hover:bg-sky-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         <span>⚡</span>
-                                        {paymentLoading ? "Opening…" : `Collect ₹${outstandingBalance.toLocaleString('en-IN')} via Razorpay`}
+                                        {paymentLoading
+                                            ? t("collectModal.opening", "Opening…")
+                                            : t("collectModal.collectOnline", "Collect ₹{{amount}} via Razorpay", { amount: outstandingBalance.toLocaleString('en-IN') })}
                                     </button>
                                     <div className="mt-1.5 text-[11px] text-gray-400 text-center leading-snug">
-                                        Charges the guest the full balance now, online.
+                                        {t("collectModal.onlineHint", "Charges the guest the full balance now, online.")}
                                     </div>
                                 </div>
                             )}
@@ -967,16 +982,16 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
                                     <RotateCcw className="w-5 h-5" />
                                 </div>
                                 <div>
-                                    <h3 className="text-lg font-bold text-[#F3E6D0]">Refund payment</h3>
+                                    <h3 className="text-lg font-bold text-[#F3E6D0]">{t("refundModal.title", "Refund payment")}</h3>
                                     <p className="text-xs text-[#F3E6D0]/60 mt-0.5">
-                                        Refund via Razorpay (Linked Account is debited)
+                                        {t("refundModal.subtitle", "Refund via Razorpay (Linked Account is debited)")}
                                     </p>
                                 </div>
                             </div>
                             <button
                                 onClick={closeRefundModal}
                                 className="p-1.5 text-[#F3E6D0]/40 hover:text-[#F3E6D0] rounded-md transition-colors"
-                                aria-label="Close"
+                                aria-label={t("refundModal.close", "Close")}
                             >
                                 <X className="w-4 h-4" />
                             </button>
@@ -984,7 +999,7 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
 
                         <div className="space-y-4">
                             <div className="text-xs text-[#F3E6D0]/60 bg-white/5 rounded-lg px-3 py-2 border border-white/10">
-                                Original payment: <span className="font-mono text-[#F3E6D0]">₹{refundFor.amount.toLocaleString("en-IN")}</span>
+                                {t("refundModal.originalPayment", "Original payment:")} <span className="font-mono text-[#F3E6D0]">₹{refundFor.amount.toLocaleString("en-IN")}</span>
                                 {" · "}
                                 <span className="capitalize">{refundFor.method.toLowerCase()}</span>
                                 {refundFor.razorpay_payment_id && (
@@ -997,7 +1012,7 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
 
                             <div>
                                 <label className="block text-[11px] font-bold uppercase tracking-wider text-[#F3E6D0]/70 mb-1.5">
-                                    Amount to refund (₹)
+                                    {t("refundModal.amountLabel", "Amount to refund (₹)")}
                                 </label>
                                 <input
                                     type="number"
@@ -1009,18 +1024,18 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
                                     className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-mono text-[#F3E6D0] focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
                                 />
                                 <p className="text-[11px] text-[#F3E6D0]/40 mt-1">
-                                    Defaults to full amount. Partial refunds allowed.
+                                    {t("refundModal.amountHint", "Defaults to full amount. Partial refunds allowed.")}
                                 </p>
                             </div>
 
                             <div>
                                 <label className="block text-[11px] font-bold uppercase tracking-wider text-[#F3E6D0]/70 mb-1.5">
-                                    Reason <span className="text-[#F3E6D0]/30 font-normal normal-case">(staff note, optional)</span>
+                                    {t("refundModal.reason", "Reason")} <span className="text-[#F3E6D0]/30 font-normal normal-case">{t("refundModal.reasonHint", "(staff note, optional)")}</span>
                                 </label>
                                 <textarea
                                     value={refundReason}
                                     onChange={(e) => setRefundReason(e.target.value)}
-                                    placeholder="Guest disputed extra night charge…"
+                                    placeholder={t("refundModal.reasonPlaceholder", "Guest disputed extra night charge…")}
                                     rows={2}
                                     className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-[#F3E6D0] placeholder-[#F3E6D0]/30 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 resize-none"
                                 />
@@ -1034,7 +1049,7 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
                             )}
 
                             <div className="text-[11px] text-[#F3E6D0]/40 leading-relaxed border-t border-white/5 pt-3">
-                                Refunds are processed with <code className="bg-white/5 px-1 rounded">reverse_all: 1</code> so funds come back from this hotel's Razorpay Linked Account. Razorpay typically settles refunds within 5–7 business days.
+                                {t("refundModal.disclaimer", "Refunds are processed with reverse_all: 1 so funds come back from this hotel's Razorpay Linked Account. Razorpay typically settles refunds within 5–7 business days.")}
                             </div>
 
                             <div className="flex gap-2 pt-1">
@@ -1043,7 +1058,7 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
                                     disabled={refundBusy}
                                     className="flex-1 py-2.5 rounded-lg border border-white/10 bg-white/5 text-sm font-medium text-[#F3E6D0]/70 hover:bg-white/10 disabled:opacity-50 transition-colors"
                                 >
-                                    Cancel
+                                    {t("refundModal.cancel", "Cancel")}
                                 </button>
                                 <button
                                     onClick={submitRefund}
@@ -1051,7 +1066,7 @@ export default function FolioDrawer({ isOpen, onClose, arrival, onMutated }: Fol
                                     className="flex-1 py-2.5 rounded-lg bg-amber-600 text-sm font-bold text-white hover:bg-amber-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center gap-2"
                                 >
                                     {refundBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
-                                    {refundBusy ? "Processing…" : "Refund"}
+                                    {refundBusy ? t("refundModal.processing", "Processing…") : t("refundModal.refund", "Refund")}
                                 </button>
                             </div>
                         </div>

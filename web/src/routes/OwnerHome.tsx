@@ -8,6 +8,7 @@ import OwnerDigestCard from "../components/OwnerDigestCard";
 import { OwnerLangToggle } from "../i18n/OwnerLangToggle";
 import UsageMeter from "../components/UsageMeter";
 import ObservabilityCard from "../components/ObservabilityCard";
+import { useOwnerT } from "../i18n/useOwnerT";
 
 /** --- Local types to keep the file focused --- */
 type Kpis = {
@@ -28,6 +29,7 @@ export default function OwnerHome() {
   const navigate = useNavigate();
   const { slug: slugParam } = useParams<{ slug?: string }>();
   const [sp, setSp] = useSearchParams();
+  const t = useOwnerT("owner-home");
 
   // Role context (you created this)
   const { current } = useRole(); // { role: 'guest'|'staff'|'manager'|'owner', hotelSlug?: string|null }
@@ -130,16 +132,18 @@ export default function OwnerHome() {
   if (!allowed) {
     return (
       <main className="max-w-xl mx-auto p-8 text-center space-y-3">
-        <h1 className="text-xl font-semibold">No access</h1>
+        <h1 className="text-xl font-semibold">{t("noAccess.heading", "No access")}</h1>
         <p className="opacity-70">
-          You need owner/manager permissions to view this page.
+          {t("noAccess.body", "You need owner/manager permissions to view this page.")}
         </p>
         <a className="btn btn-light" href="/contact">
-          Request access
+          {t("noAccess.requestAccess", "Request access")}
         </a>
       </main>
     );
   }
+
+  const gridMode = peek?.grid?.mode ?? "—";
 
   return (
     <main
@@ -150,7 +154,7 @@ export default function OwnerHome() {
       <header className="flex items-center justify-between gap-3">
         <div>
           <h1 id="owner-home-title" className="text-xl font-semibold">
-            Owner Console
+            {t("title", "Owner Console")}
           </h1>
           <div className="text-sm text-gray-600">
             {peek?.hotel?.name ?? resolvedSlug}
@@ -160,8 +164,8 @@ export default function OwnerHome() {
           <OwnerLangToggle />
           <input
             className="input"
-            placeholder="Hotel slug"
-            aria-label="Hotel slug"
+            placeholder={t("header.slugPlaceholder", "Hotel slug")}
+            aria-label={t("header.slugPlaceholder", "Hotel slug")}
             value={slug}
             onChange={(e) => setSlug(e.target.value.trim())}
             style={{ width: 160 }}
@@ -170,7 +174,7 @@ export default function OwnerHome() {
             to={`/owner/settings?slug=${encodeURIComponent(resolvedSlug)}`}
             className="btn btn-light"
           >
-            Settings
+            {t("header.settings", "Settings")}
           </Link>
         </div>
       </header>
@@ -182,7 +186,7 @@ export default function OwnerHome() {
           {/* Digest + Usage */}
           <section
             className="grid md:grid-cols-2 gap-3"
-            aria-label="Digest and usage"
+            aria-label={t("sections.digest", "Digest and usage")}
           >
             <OwnerDigestCard
               slug={resolvedSlug}
@@ -195,104 +199,99 @@ export default function OwnerHome() {
           {/* KPI glance */}
           <section
             className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3"
-            aria-label="Key performance indicators"
+            aria-label={t("sections.kpis", "Key performance indicators")}
           >
-            <Kpi title="Tickets" value={peek?.kpis?.tickets ?? "—"} />
-            <Kpi title="Orders" value={peek?.kpis?.orders ?? "—"} />
-            <Kpi title="On-time" value={peek?.kpis?.onTime ?? "—"} />
-            <Kpi title="Late" value={peek?.kpis?.late ?? "—"} />
-            <Kpi title="Avg mins" value={peek?.kpis?.avgMins ?? "—"} />
+            <Kpi title={t("kpi.tickets", "Tickets")} value={peek?.kpis?.tickets ?? "—"} />
+            <Kpi title={t("kpi.orders", "Orders")} value={peek?.kpis?.orders ?? "—"} />
+            <Kpi title={t("kpi.onTime", "On-time")} value={peek?.kpis?.onTime ?? "—"} />
+            <Kpi title={t("kpi.late", "Late")} value={peek?.kpis?.late ?? "—"} />
+            <Kpi title={t("kpi.avgMins", "Avg mins")} value={peek?.kpis?.avgMins ?? "—"} />
           </section>
 
           {/* Quick links */}
           <section
             className="grid md:grid-cols-2 lg:grid-cols-3 gap-3"
-            aria-label="Quick links"
+            aria-label={t("sections.quickLinks", "Quick links")}
           >
             <Tile
-              title="Dashboard & KPIs"
-              text="Trends, SLA hints, exports."
+              title={t("tiles.dashboard.title", "Dashboard & KPIs")}
+              text={t("tiles.dashboard.text", "Trends, SLA hints, exports.")}
               to={`/owner/${encodeURIComponent(resolvedSlug)}`}
               emoji="📈"
-              cta="Open dashboard"
+              cta={t("tiles.dashboard.cta", "Open dashboard")}
             />
             <Tile
-              title="AI review moderation"
-              text="Truth-anchored drafts, owner-approved."
+              title={t("tiles.reviews.title", "AI review moderation")}
+              text={t("tiles.reviews.text", "Truth-anchored drafts, owner-approved.")}
               to={`/owner/reviews?slug=${encodeURIComponent(resolvedSlug)}`}
               emoji="📝"
-              cta="Review drafts"
+              cta={t("tiles.reviews.cta", "Review drafts")}
             />
-            {/* NEW: Reputation Radar tile */}
             <Tile
-              title="Reputation Radar"
-              text="Correlate tickets, stays & reviews. Flag suspicious patterns early."
+              title={t("tiles.reputation.title", "Reputation Radar")}
+              text={t("tiles.reputation.text", "Correlate tickets, stays & reviews. Flag suspicious patterns early.")}
               to={`/owner/${encodeURIComponent(resolvedSlug)}/reputation`}
               emoji="🛡️"
-              cta="Open radar"
+              cta={t("tiles.reputation.cta", "Open radar")}
             />
             <Tile
-              title="Grid: Devices"
-              text={`Mode: ${peek?.grid?.mode ?? "—"
-                }. One-tap Shed/Restore in manual.`}
+              title={t("tiles.gridDevices.title", "Grid: Devices")}
+              text={t("tiles.gridDevices.text", "Mode: {{mode}}. One-tap Shed/Restore in manual.", { mode: gridMode })}
               to={`/grid/devices?slug=${encodeURIComponent(resolvedSlug)}`}
               emoji="⚡"
-              cta="Manage devices"
+              cta={t("tiles.gridDevices.cta", "Manage devices")}
             />
             <Tile
-              title="Grid: Events"
-              text="Timeline, savings estimate, CSV."
+              title={t("tiles.gridEvents.title", "Grid: Events")}
+              text={t("tiles.gridEvents.text", "Timeline, savings estimate, CSV.")}
               to={`/grid/events?slug=${encodeURIComponent(resolvedSlug)}`}
               emoji="📊"
-              cta="View events"
+              cta={t("tiles.gridEvents.cta", "View events")}
             />
             <Tile
-              title="Housekeeping"
-              text="Enterprise-grade room status & task management."
+              title={t("tiles.housekeeping.title", "Housekeeping")}
+              text={t("tiles.housekeeping.text", "Enterprise-grade room status & task management.")}
               to={`/owner/${encodeURIComponent(resolvedSlug)}/housekeeping`}
               emoji="🧹"
-              cta="Open board"
+              cta={t("tiles.housekeeping.cta", "Open board")}
             />
             <Tile
-              title="Front Desk"
-              text="Requests, SLAs, routing."
+              title={t("tiles.frontDesk.title", "Front Desk")}
+              text={t("tiles.frontDesk.text", "Requests, SLAs, routing.")}
               to={`/desk?slug=${encodeURIComponent(resolvedSlug)}`}
               emoji="🛎️"
-              cta="Open desk"
+              cta={t("tiles.frontDesk.cta", "Open desk")}
             />
             <Tile
-              title="Services (SLA)"
-              text="Edit labels, SLA minutes, active."
+              title={t("tiles.services.title", "Services (SLA)")}
+              text={t("tiles.services.text", "Edit labels, SLA minutes, active.")}
               to={`/owner/services?slug=${encodeURIComponent(resolvedSlug)}`}
               emoji="🧩"
-              cta="Open services"
+              cta={t("tiles.services.cta", "Open services")}
             />
-            {/* Guest unified profile (demo entry) */}
             <Tile
-              title="Guest profiles"
-              text="Unified timeline of stays, tickets, orders, reviews & credits (demo guest)."
-              to={`/owner/guest/demo-guest?slug=${encodeURIComponent(
-                resolvedSlug
-              )}`}
+              title={t("tiles.guestProfiles.title", "Guest profiles")}
+              text={t("tiles.guestProfiles.text", "Unified timeline of stays, tickets, orders, reviews & credits (demo guest).")}
+              to={`/owner/guest/demo-guest?slug=${encodeURIComponent(resolvedSlug)}`}
               emoji="👤"
-              cta="Open demo guest"
+              cta={t("tiles.guestProfiles.cta", "Open demo guest")}
             />
           </section>
 
           {/* Coming soon */}
-          <section className="card" aria-label="Coming soon">
-            <div className="font-semibold mb-1">Coming soon</div>
+          <section className="card" aria-label={t("sections.comingSoon", "Coming soon")}>
+            <div className="font-semibold mb-1">{t("sections.comingSoon", "Coming soon")}</div>
             <ul className="text-sm text-gray-600 list-disc pl-5 space-y-1">
-              <li>Bookings & revenue peek (PMS sync)</li>
-              <li>Staff KPIs & attendance hooks</li>
-              <li>Energy & cost reports (time-of-day tariffs)</li>
-              <li>Owner app & alerts</li>
+              <li>{t("comingSoon.bookingsPeek", "Bookings & revenue peek (PMS sync)")}</li>
+              <li>{t("comingSoon.staffKpis", "Staff KPIs & attendance hooks")}</li>
+              <li>{t("comingSoon.energyReports", "Energy & cost reports (time-of-day tariffs)")}</li>
+              <li>{t("comingSoon.ownerApp", "Owner app & alerts")}</li>
             </ul>
           </section>
 
           {loading && (
             <div role="status" aria-live="polite">
-              Loading…
+              {t("loading", "Loading…")}
             </div>
           )}
         </div>

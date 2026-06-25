@@ -1,0 +1,43 @@
+{
+  "title": "Owner Console",
+  "noAccess": {
+    "heading": "No access",
+    "body": "You need owner/manager permissions to view this page.",
+    "requestAccess": "Request access"
+  },
+  "header": {
+    "slugPlaceholder": "Hotel slug",
+    "settings": "Settings"
+  },
+  "kpi": {
+    "tickets": "Tickets",
+    "orders": "Orders",
+    "onTime": "On-time",
+    "late": "Late",
+    "avgMins": "Avg mins"
+  },
+  "sections": {
+    "digest": "Digest and usage",
+    "kpis": "Key performance indicators",
+    "quickLinks": "Quick links",
+    "comingSoon": "Coming soon"
+  },
+  "tiles": {
+    "dashboard": { "title": "Dashboard & KPIs", "text": "Trends, SLA hints, exports.", "cta": "Open dashboard" },
+    "reviews": { "title": "AI review moderation", "text": "Truth-anchored drafts, owner-approved.", "cta": "Review drafts" },
+    "reputation": { "title": "Reputation Radar", "text": "Correlate tickets, stays & reviews. Flag suspicious patterns early.", "cta": "Open radar" },
+    "gridDevices": { "title": "Grid: Devices", "text": "Mode: {{mode}}. One-tap Shed/Restore in manual.", "cta": "Manage devices" },
+    "gridEvents": { "title": "Grid: Events", "text": "Timeline, savings estimate, CSV.", "cta": "View events" },
+    "housekeeping": { "title": "Housekeeping", "text": "Enterprise-grade room status & task management.", "cta": "Open board" },
+    "frontDesk": { "title": "Front Desk", "text": "Requests, SLAs, routing.", "cta": "Open desk" },
+    "services": { "title": "Services (SLA)", "text": "Edit labels, SLA minutes, active.", "cta": "Open services" },
+    "guestProfiles": { "title": "Guest profiles", "text": "Unified timeline of stays, tickets, orders, reviews & credits (demo guest).", "cta": "Open demo guest" }
+  },
+  "comingSoon": {
+    "bookingsPeek": "Bookings & revenue peek (PMS sync)",
+    "staffKpis": "Staff KPIs & attendance hooks",
+    "energyReports": "Energy & cost reports (time-of-day tariffs)",
+    "ownerApp": "Owner app & alerts"
+  },
+  "loading": "Loading…"
+}

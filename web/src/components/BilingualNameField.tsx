@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useOwnerCommonT } from "../i18n/useOwnerT";
 
 // BilingualNameField — an OPTIONAL Hindi-name input that sits next to an
 // existing English name field in owner forms (menu items, services, room
@@ -23,8 +24,8 @@ export default function BilingualNameField({
   value,
   onChange,
   kind = "dish",
-  label = "Hindi name (optional)",
-  placeholder = "अतिथि को हिंदी में दिखेगा",
+  label,
+  placeholder,
   inputClassName = DEFAULT_INPUT_CLASS,
 }: {
   /** the current English name, used as the source for the Suggest button */
@@ -38,7 +39,14 @@ export default function BilingualNameField({
   /** override the input class so the field matches its host modal's shade */
   inputClassName?: string;
 }) {
+  const t = useOwnerCommonT();
   const [suggesting, setSuggesting] = useState(false);
+
+  // Props win when a host passes an explicit label/placeholder; otherwise fall
+  // back to the shared owner-common translations (English while reveal-gated).
+  const resolvedLabel = label ?? t("bilingualName.label", "Hindi name (optional)");
+  const resolvedPlaceholder =
+    placeholder ?? t("bilingualName.placeholder", "अतिथि को हिंदी में दिखेगा");
 
   async function handleSuggest() {
     const src = (englishValue || "").trim();
@@ -63,15 +71,15 @@ export default function BilingualNameField({
   return (
     <div>
       <div className="flex items-center justify-between mb-1">
-        <label className="block text-xs font-medium text-slate-400">{label}</label>
+        <label className="block text-xs font-medium text-slate-400">{resolvedLabel}</label>
         <button
           type="button"
           onClick={handleSuggest}
           disabled={!englishValue.trim() || suggesting}
           className="text-[11px] font-medium text-blue-400 hover:text-blue-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          title="Offline transliteration suggestion — please review before saving"
+          title={t("bilingualName.suggestTitle", "Offline transliteration suggestion — please review before saving")}
         >
-          {suggesting ? "…" : "Suggest in हिंदी"}
+          {suggesting ? "…" : t("bilingualName.suggest", "Suggest in हिंदी")}
         </button>
       </div>
       <input
@@ -80,10 +88,10 @@ export default function BilingualNameField({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className={inputClassName}
-        placeholder={placeholder}
+        placeholder={resolvedPlaceholder}
       />
       <p className="text-[11px] text-slate-500 mt-1">
-        Shown to guests viewing in Hindi. Leave blank to show the English name.
+        {t("bilingualName.helper", "Shown to guests viewing in Hindi. Leave blank to show the English name.")}
       </p>
     </div>
   );

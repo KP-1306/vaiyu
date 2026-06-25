@@ -1,0 +1,31 @@
+{
+  "title": "Food Menu",
+  "subtitle": "Items here power the Food tab in the guest menu.",
+  "loading": "Loading food menu…",
+  "manage": {
+    "title": "Menu Items",
+    "subtitle": "Manage food and beverage items available for guests to order.",
+    "suggestAll": "Suggest Hindi (all)",
+    "suggestAllTitle": "Offline suggestion — fills a Hindi name for items that don't have one yet. Review, then Save.",
+    "addItem": "+ Add item",
+    "noImg": "No img",
+    "colName": "Name",
+    "colHindi": "Hindi (हिं)",
+    "colCategory": "Category",
+    "colPrice": "Price",
+    "colVeg": "Veg",
+    "colActive": "Active",
+    "activeTitle": "Toggle visibility regarding availability",
+    "namePlaceholder": "e.g. Masala Tea",
+    "optionalPlaceholder": "Optional",
+    "selectCategory": "Select Category",
+    "editTitle": "Edit Details",
+    "empty": "No items yet. Click \"+ Add item\" to create your first dish.",
+    "saving": "Saving…",
+    "save": "Save Changes",
+    "errLoad": "Failed to load food menu.",
+    "errNoValid": "No valid items to save.",
+    "savedOk": "Food menu saved. Changes are live in the guest menu.",
+    "errSave": "Failed to save food menu."
+  }
+}

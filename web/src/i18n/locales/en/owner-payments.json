@@ -66,8 +66,13 @@
     "fee": "Platform fee retained",
     "feeSub": "{{pct}}% on Razorpay only"
   },
-  "search": { "placeholder": "Search booking, guest, or reference" },
-  "filter": { "allMethods": "All methods", "allStatuses": "All statuses" },
+  "search": {
+    "placeholder": "Search booking, guest, or reference"
+  },
+  "filter": {
+    "allMethods": "All methods",
+    "allStatuses": "All statuses"
+  },
   "table": {
     "date": "Date",
     "booking": "Booking",
@@ -85,7 +90,8 @@
     "refundsAgainst": "Refunds against this payment",
     "noReason": "No reason given",
     "refresh": "Refresh",
-    "checking": "Checking"
+    "checking": "Checking",
+    "refreshTitle": "Ask Razorpay for the current refund status"
   },
   "footer": "Showing the most recent {{shown}} of {{total}} payments for the selected window. Settlement timing for Razorpay payouts to your Linked Account is governed by your Razorpay agreement (usually T+1 to T+3 business days). The amounts here reflect what was captured, not what has hit your bank account."
 }

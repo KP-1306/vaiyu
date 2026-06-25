@@ -1,0 +1,71 @@
+{
+  "title": {
+    "add": "Add Food Item",
+    "edit": "Edit Food Item"
+  },
+  "section": {
+    "basicInfo": "Basic Info",
+    "availability": "Availability",
+    "dietary": "Dietary Info",
+    "spiceLevel": "Spice Level",
+    "allergens": "Allergens",
+    "description": "Item Description"
+  },
+  "fields": {
+    "itemImage": "Item Image",
+    "tapToUpload": "Tap to upload",
+    "itemName": "Item Name",
+    "namePlaceholder": "e.g. Pasta Alfredo",
+    "itemKey": "Item Key",
+    "category": "Category",
+    "selectCategory": "Select Category",
+    "noCategories": "No categories found",
+    "price": "Price",
+    "daysActive": "Days Active",
+    "startTime": "Start Time",
+    "endTime": "End Time",
+    "hideOutside": "Hide outside availability window",
+    "descPlaceholder": "Add a tasty description for the guest...",
+    "imagePreview": "Preview"
+  },
+  "days": {
+    "mon": "M",
+    "tue": "T",
+    "wed": "W",
+    "thu": "T",
+    "fri": "F",
+    "sat": "S",
+    "sun": "S"
+  },
+  "dietary": {
+    "vegetarian": "Vegetarian",
+    "jain": "Jain",
+    "vegan": "Vegan"
+  },
+  "spice": {
+    "mild": "Mild",
+    "medium": "Medium",
+    "hot": "Hot"
+  },
+  "allergens": {
+    "nuts": "Nuts",
+    "dairy": "Dairy",
+    "gluten": "Gluten",
+    "soy": "Soy",
+    "eggs": "Eggs",
+    "shellfish": "Shellfish"
+  },
+  "status": {
+    "uploading": "Uploading..."
+  },
+  "validation": {
+    "required": "Please fill in Name, Price and Category"
+  },
+  "errors": {
+    "uploadFailed": "Failed to upload image"
+  },
+  "actions": {
+    "uploading": "Uploading...",
+    "save": "Save"
+  }
+}

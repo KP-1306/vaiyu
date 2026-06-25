@@ -1,0 +1,125 @@
+{
+  "tabs": {
+    "summary": "Summary",
+    "folio": "Folio",
+    "payments": "Payments",
+    "activity": "Activity"
+  },
+  "header": {
+    "nights_one": "{{count}} Night",
+    "nights_other": "{{count}} Nights",
+    "unassigned": "Unassigned"
+  },
+  "outstanding": "Outstanding Balance:",
+  "folioEntries": "Folio Entries",
+  "loadingFolio": "Loading folio...",
+  "lines": {
+    "roomCharges": "Room Charges",
+    "discount": "Discount",
+    "surcharge": "Surcharge",
+    "tax": "Tax",
+    "food": "Food / F&B",
+    "service": "Service",
+    "paymentsReceived": "Payments Received",
+    "totalCharges": "Total Charges",
+    "totalPayments": "Total Payments",
+    "outstandingBalance": "Outstanding Balance"
+  },
+  "collectPayment": "Collect Payment",
+  "summary": {
+    "stayInfo": "Stay Information",
+    "checkin": "Check-in",
+    "checkout": "Checkout",
+    "room": "Room",
+    "guests": "Guests",
+    "person_one": "{{count}} Person",
+    "person_other": "{{count}} People",
+    "bookingRefSource": "Booking Ref / Source",
+    "otaBooking": "OTA Booking",
+    "directBooking": "Direct Booking",
+    "quickKpis": "Quick KPIs",
+    "vipStatus": "VIP Status",
+    "vipStay": "VIP STAY",
+    "standard": "STANDARD",
+    "roomStatus": "Room Status",
+    "roomState": {
+      "waiting": "WAITING",
+      "inhouse": "INHOUSE",
+      "ready": "READY",
+      "dirty": "DIRTY",
+      "unassigned": "UNASSIGNED"
+    }
+  },
+  "payments": {
+    "title": "Transaction History",
+    "records": "{{count}} Records",
+    "loading": "Loading transactions...",
+    "emptyTitle": "No Payments Yet",
+    "emptyBody": "No transactions have been recorded for this stay.",
+    "refunded": "Refunded",
+    "failed": "Failed",
+    "by": "By:",
+    "system": "System",
+    "refund": "Refund",
+    "recordNew": "+ Record New Payment"
+  },
+  "activity": {
+    "title": "Operational Timeline",
+    "events": "{{count}} Events",
+    "loading": "Loading timeline...",
+    "emptyTitle": "No Activity Yet",
+    "emptyBody": "No events have been recorded for this stay."
+  },
+  "footer": "Need assistance? Call Front Desk at {{phone}}",
+  "timeline": {
+    "guestCheckedIn": "Guest checked in",
+    "guestCheckedOut": "Guest checked out",
+    "stayCompleted": "Stay completed",
+    "bookingCreated": "Booking created",
+    "via": "Via {{source}}",
+    "directEntry": "Direct Entry",
+    "collectedBy": "Collected by {{name}}",
+    "roomSub": "Room {{room}}",
+    "assigned": "assigned"
+  },
+  "collectModal": {
+    "method": "Payment Method",
+    "cash": "Cash",
+    "upi": "UPI",
+    "card": "Card",
+    "bankTransfer": "Bank Transfer",
+    "recordsHint": "Records a payment already received from the guest.",
+    "enterAmount": "Enter amount",
+    "enterNote": "Enter a note (optional)",
+    "processing": "Processing…",
+    "recordAmount": "Record {{amount}}",
+    "recordFallback": "Payment",
+    "orOnline": "or collect online",
+    "opening": "Opening…",
+    "collectOnline": "Collect ₹{{amount}} via Razorpay",
+    "onlineHint": "Charges the guest the full balance now, online."
+  },
+  "refundModal": {
+    "title": "Refund payment",
+    "subtitle": "Refund via Razorpay (Linked Account is debited)",
+    "close": "Close",
+    "originalPayment": "Original payment:",
+    "amountLabel": "Amount to refund (₹)",
+    "amountHint": "Defaults to full amount. Partial refunds allowed.",
+    "reason": "Reason",
+    "reasonHint": "(staff note, optional)",
+    "reasonPlaceholder": "Guest disputed extra night charge…",
+    "disclaimer": "Refunds are processed with reverse_all: 1 so funds come back from this hotel's Razorpay Linked Account. Razorpay typically settles refunds within 5–7 business days.",
+    "cancel": "Cancel",
+    "processing": "Processing…",
+    "refund": "Refund"
+  },
+  "errors": {
+    "refundGtZero": "Refund amount must be > 0",
+    "refundMax": "Cannot refund more than the original amount (₹{{amount}})",
+    "paymentFailedPrefix": "Payment failed: {{msg}}",
+    "paymentCancelled": "Payment cancelled — no money has moved.",
+    "razorpayRejected": "Razorpay rejected the payment",
+    "paymentFailed": "Payment failed"
+  }
+}

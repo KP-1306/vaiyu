@@ -852,7 +852,7 @@ export default function OwnerServices() {
 
   return (
     <>
-      <SEO title="Services & SLAs" noIndex />
+      <SEO title={t("title", "Services & SLAs")} noIndex />
       <OwnerGate roles={["owner", "manager"]}>
         <div className="vaiyu-owner flex flex-col min-h-screen">
           {/* Header / Breadcrumb */}

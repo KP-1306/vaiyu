@@ -1,5 +1,9 @@
 {
-  "breadcrumb": { "console": "Console", "booking": "Booking" },
+  "breadcrumb": {
+    "console": "Console",
+    "booking": "Booking",
+    "ariaLabel": "Breadcrumb"
+  },
   "notFound": {
     "title": "Booking not found",
     "body": "This booking doesn’t exist, or you don’t have access to it for this hotel.",
@@ -13,6 +17,10 @@
     "settled": "Settled"
   },
   "collect": "Collect {{amount}} · Cash",
-  "folio": { "empty": "No folio entries yet." },
-  "payments": { "title": "Payments" }
+  "folio": {
+    "empty": "No folio entries yet."
+  },
+  "payments": {
+    "title": "Payments"
+  }
 }

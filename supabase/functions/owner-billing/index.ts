@@ -2,14 +2,14 @@ import { serve as __serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { withObs as __withObs } from "../_shared/http-telemetry.ts";
 const serve = (h: (req: Request) => Response | Promise<Response>) => __serve(__withObs("owner-billing", h));
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { secretKey } from "../_shared/keys.ts";
+import { secretKey, publishableKey } from "../_shared/keys.ts";
 import { j } from "../_shared/cors.ts";
 import { alertError } from "../_shared/alert.ts";
 
 function supabaseAnon(req: Request) {
   return createClient(
     Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_ANON_KEY")!,
+    publishableKey(),
     { global: { headers: { Authorization: req.headers.get("Authorization") || "" } } }
   );
 }

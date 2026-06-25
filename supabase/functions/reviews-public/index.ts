@@ -4,10 +4,11 @@ const serve = (h: (req: Request) => Response | Promise<Response>) => __serve(__w
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { j } from "../_shared/cors.ts";
 import { alertError } from "../_shared/alert.ts";
+import { publishableKey } from "../_shared/keys.ts";
 
 /* anon client for reading + rate-limit hits */
 function supabaseAnon() {
-  return createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!);
+  return createClient(Deno.env.get("SUPABASE_URL")!, publishableKey());
 }
 
 async function rateLimitOrThrow(req: Request, keyHint: string, limit = 120) {

@@ -4,6 +4,7 @@ import { withObs as __withObs } from "../_shared/http-telemetry.ts";
 const serve = (h: (req: Request) => Response | Promise<Response>) => __serve(__withObs("catalog-menu", h));
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { j } from "../_shared/cors.ts";
+import { publishableKey } from "../_shared/keys.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return j(req, 200, { ok: true });
@@ -16,7 +17,7 @@ serve(async (req) => {
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       // anon is fine for public catalog reads
-      Deno.env.get("SUPABASE_ANON_KEY")!
+      publishableKey()
     );
 
     const { data: hotel, error: hErr } = await supabase

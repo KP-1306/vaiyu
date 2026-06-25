@@ -2,6 +2,7 @@ import { serve as __serve } from "https://deno.land/std/http/server.ts";
 import { withObs as __withObs } from "../_shared/http-telemetry.ts";
 const serve = (h: (req: Request) => Response | Promise<Response>) => __serve(__withObs("walkin_start", h));
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { publishableKey } from "../_shared/keys.ts";
 
 function b64(buf: ArrayBuffer) {
   return btoa(String.fromCharCode(...new Uint8Array(buf)));
@@ -13,7 +14,7 @@ serve(async (req) => {
     if (!hotel_code) throw new Error("Missing hotel_code");
 
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-    const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const SUPABASE_ANON_KEY = publishableKey();
     const WALKIN_SECRET = Deno.env.get("WALKIN_SECRET")!;
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 

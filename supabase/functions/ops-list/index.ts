@@ -4,6 +4,7 @@ import { withObs as __withObs } from "../_shared/http-telemetry.ts";
 const serve = (h: (req: Request) => Response | Promise<Response>) => __serve(__withObs("ops-list", h));
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { alertError } from "../_shared/alert.ts";
+import { publishableKey } from "../_shared/keys.ts";
 
 
 /** JSON + CORS */
@@ -22,7 +23,7 @@ function J(status: number, body: unknown) {
 /** anon client that forwards the caller's Authorization */
 function supabaseAnon(req: Request) {
   const url = Deno.env.get("SUPABASE_URL")!;
-  const anon = Deno.env.get("SUPABASE_ANON_KEY")!;
+  const anon = publishableKey();
   return createClient(url, anon, {
     global: { headers: { Authorization: req.headers.get("Authorization") || "" } },
   });

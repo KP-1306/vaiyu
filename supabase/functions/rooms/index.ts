@@ -5,9 +5,10 @@ import { serve as __serve } from "https://deno.land/std@0.192.0/http/server.ts";
 import { withObs as __withObs } from "../_shared/http-telemetry.ts";
 const serve = (h: (req: Request) => Response | Promise<Response>) => __serve(__withObs("rooms", h));
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { publishableKey } from "../_shared/keys.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+const SUPABASE_ANON_KEY = publishableKey();
 
 const corsHeaders: Record<string, string> = {
     "Access-Control-Allow-Origin": "*",

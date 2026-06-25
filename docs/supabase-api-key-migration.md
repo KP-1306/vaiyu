@@ -136,6 +136,33 @@ construction, independent of any key representation):
 Verified: `admin-alerts` 200 on both the direct call and the cron path (Vault); no
 breakage window observed across the cutover. `cleanup` uses the identical mechanism.
 
+## Disable-readiness prerequisite DONE (2026-06-26)
+
+A pre-disable sweep found **12 edge functions still reading the legacy anon key
+directly** (`Deno.env.get("SUPABASE_ANON_KEY")`) for their internal PostgREST
+client — these would 401 the moment legacy anon is disabled:
+`catalog-menu, catalog-services, ops-list, ops-update, orders, owner-billing,
+owner-settings, reviews-public, reviews, rooms, tickets, walkin_start`.
+
+All 12 switched to `publishableKey()` (new `sb_publishable_`, legacy fallback
+intact). `verify_jwt` unchanged (these are browser-called with a user JWT).
+Deployed via `--use-api`; all 12 ACTIVE with fresh versions.
+
+Evidence both key types survive the disable:
+- **anon → publishable:** new publishable key does a PostgREST RLS read → **200**
+  with real rows; gateway accepts it for `verify_jwt=true` fns (apikey and Bearer).
+- **service_role:** per-minute cron edge fns (`send-notifications` etc., all use
+  `secretKey()` = new edge secret) returning **200 `{"success":true}`** live.
+  (A direct PostgREST call with the *management-API* secret 401s — that endpoint
+  returns a masked/non-data-plane secret representation, NOT the edge-injected
+  `SUPABASE_SECRET_KEYS` the functions actually use. Same representation quirk as
+  the cutover's len-67-vs-41 mismatch.)
+
+The cron→fn invokers were re-verified: only `va_admin_invoke_alerts` +
+`va_invoke_cleanup_guest_documents` read Vault `service_role_key` (= `VA_CRON_SECRET`),
+both target `verify_jwt=false` cut-over fns; `va_cron_invoke_fn` sends no auth header
+(verify_jwt=false targets). Nothing else depends on the legacy keys.
+
 **Still pending (your dashboard actions, when ready):**
 - Step 9–10: confirm legacy idle → **disable** legacy `anon` + `service_role` (reversible).
 - Step 11: **revoke** the legacy JWT secret → kills the originally-leaked key.

@@ -3,13 +3,13 @@ import { serve as __serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { withObs as __withObs } from "../_shared/http-telemetry.ts";
 const serve = (h: (req: Request) => Response | Promise<Response>) => __serve(__withObs("owner-settings", h));
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { secretKey } from "../_shared/keys.ts";
+import { secretKey, publishableKey } from "../_shared/keys.ts";
 import { j } from "../_shared/cors.ts";
 
 /* ---------- clients ---------- */
 function supabaseAnon(req: Request) {
   const url = Deno.env.get("SUPABASE_URL")!;
-  const anon = Deno.env.get("SUPABASE_ANON_KEY")!;
+  const anon = publishableKey();
   return createClient(url, anon, {
     global: { headers: { Authorization: req.headers.get("Authorization") || "" } },
   });

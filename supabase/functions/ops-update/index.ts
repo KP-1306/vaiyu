@@ -3,7 +3,7 @@ import { serve as __serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { withObs as __withObs } from "../_shared/http-telemetry.ts";
 const serve = (h: (req: Request) => Response | Promise<Response>) => __serve(__withObs("ops-update", h));
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { secretKey } from "../_shared/keys.ts";
+import { secretKey, publishableKey } from "../_shared/keys.ts";
 import { alertError } from "../_shared/alert.ts";
 
 /** JSON helper with permissive CORS */
@@ -22,7 +22,7 @@ function J(status: number, body: unknown) {
 /** Create an anon client that forwards the caller's Authorization header */
 function supabaseAnon(req: Request) {
   const url = Deno.env.get("SUPABASE_URL")!;
-  const anon = Deno.env.get("SUPABASE_ANON_KEY")!;
+  const anon = publishableKey();
   return createClient(url, anon, {
     global: { headers: { Authorization: req.headers.get("Authorization") || "" } },
   });

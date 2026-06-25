@@ -119,6 +119,30 @@ edge `SUPABASE_SECRET_KEYS` doesn't match Vault's value, so revert: re-point Vau
 to legacy + redeploy `main`'s role-claim version). Only then proceed to disable +
 revoke legacy.
 
+## Phase C — function cutover DONE (2026-06-26)
+
+Steps 7 + 8 for the two cron-invoked functions are **live**. We did NOT use the
+sb_secret_ exact-match after all: the secret has **different string representations**
+across surfaces — management API returns len 67, the edge-injected
+`SUPABASE_SECRET_KEYS.default` is len 41 — so an exact match would have 403'd.
+
+Instead, a **dedicated cron secret** set to the SAME value on both sides (matches by
+construction, independent of any key representation):
+- `supabase secrets set VA_CRON_SECRET=<random>` → injected into the edge functions.
+- Vault `service_role_key` → the SAME `VA_CRON_SECRET` value (what the invokers pass).
+- `isServiceToken` accepts `VA_CRON_SECRET` first (sb_secret_/legacy kept as fallback).
+- `admin-alerts` + `cleanup-guest-documents`: `verify_jwt = false`, redeployed.
+
+Verified: `admin-alerts` 200 on both the direct call and the cron path (Vault); no
+breakage window observed across the cutover. `cleanup` uses the identical mechanism.
+
+**Still pending (your dashboard actions, when ready):**
+- Step 9–10: confirm legacy idle → **disable** legacy `anon` + `service_role` (reversible).
+- Step 11: **revoke** the legacy JWT secret → kills the originally-leaked key.
+- Phase D: drop the `?? legacy` fallbacks + lower access-token expiry 86400→3600.
+
 ## Rollback
 Until step 11 (revoke), everything is reversible: re-enable legacy keys (step 10),
-or unset the new env vars (the fallback resumes using legacy).
+or unset the new env vars (the fallback resumes using legacy). For the two cutover
+functions specifically, revert = point Vault back to a legacy `service_role` JWT +
+redeploy `main`'s role-claim version with `verify_jwt=true`.

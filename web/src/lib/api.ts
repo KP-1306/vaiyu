@@ -2200,7 +2200,7 @@ export async function fetchHotelOrders(params: {
   const basePath = IS_SUPABASE_FUNCTIONS ? "/hotel-orders" : "/orders";
   const path = `${basePath}${qs ? `?${qs}` : ""}`;
 
-  const res = await req<any>(path);
+  const res = await req<any>(path, { headers: await getAuthHeaders() });
 
   if (res && (Array.isArray(res.items) || Array.isArray(res.orders))) {
     const items = (res.items ?? res.orders) as any[];

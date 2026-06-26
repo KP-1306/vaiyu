@@ -35,9 +35,9 @@ So the revoke did **not** break them, and the originally-leaked key string remai
    if promoted as-is.
    - Has in-code auth signals: `guest-identity`, `guest-identity-upsert`, `me`, `me-stays`,
      `guest-profile`, `claim-init`, `claim-verify`, `workforce-jobs`, `workforce-profile`, `ai`.
-   - **Zero auth signals — review for exposure first:** `catalog_menu2` (public menu, likely ok),
-     `hotel-orders` (confirmed open read+write hole — retire if superseded, else rewrite with guest auth).
-     (`ops-heatmap`/`staffing-plan` were here too — now promoted + secured, see above.)
+   - **Zero auth signals:** `catalog_menu2` (public menu — intentionally open, low sensitivity).
+     (`ops-heatmap`, `staffing-plan`, `hotel-orders` were here too — all now **PROMOTED + secured**
+     2026-06-27 with assertAuthed + `vaiyu_is_hotel_member`; `hotel-orders`' unused open POST was dropped.)
 2. Swap the legacy env reads → the new-key helpers (`publishableKey()` / `secretKey()` in
    `supabase/functions/_shared/keys.ts`) for consistency.
 3. Add `config.toml` `verify_jwt` entries as needed.

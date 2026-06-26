@@ -9,6 +9,7 @@ import { SimpleTooltip } from "../../components/SimpleTooltip";
 import { formatIstTime, formatRelativeTime, parseDbDate } from "../../utils/dateUtils";
 import { formatPolicyTime } from "../../utils/policyTime";
 import { localizeRoomType, localizeRoomTypeList } from "../../i18n/localizeRoomType";
+import { localizeAmenity } from "../../i18n/localizeAmenity";
 import { localizeServiceName } from "../../i18n/resolveLabel";
 import "./guestnew.css";
 import "./HeroMockup.css";
@@ -1308,7 +1309,7 @@ export default function GuestNewHome() {
                                             {propertyAmenities.map((amenity: string, idx: number) => (
                                                 <div key={idx} style={{ padding: '4px 10px', background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: '20px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                                     <span>{getAmenityIcon(amenity)}</span>
-                                                    <span>{amenity}</span>
+                                                    <span>{localizeAmenity(amenity, i18n.language)}</span>
                                                 </div>
                                             ))}
                                         </div>

@@ -20,9 +20,10 @@ So the revoke did **not** break them, and the originally-leaked key string remai
 
 ## Usage map (which app surface calls each)
 - **Owner console (active):** `ai` (UsageMeter on OwnerSettings/OwnerHome).
-  > `ops-heatmap` + `staffing-plan` were **PROMOTED** to `supabase/functions/` and **secured**
-  > (assertAuthed + `vaiyu_is_hotel_member` gate + new secret key) on 2026-06-27 — no longer here.
-  > They were open cross-tenant service-role endpoints; now require hotel membership.
+  > `ops-heatmap` + `staffing-plan` were **RETIRED** 2026-06-27 — rotted by schema/RPC drift
+  > (prod `ops_ticket_heatmap` no longer has `hour_bucket`; `staffing_plan_for_day` errors), so they
+  > 500'd on every call and the owner-dashboard widgets had been empty for months (never leaked —
+  > query died before returning data). Prod fns deleted + dashboard wiring + lib/api fns/types removed.
 - **Guest portal (old architecture, via lib/api.ts + VITE_API_URL=functions-base):**
   `me`, `me-stays`, `guest-identity`, `guest-identity-upsert`, `guest-profile`,
   `hotel-orders`, `catalog_menu2`.
@@ -36,8 +37,9 @@ So the revoke did **not** break them, and the originally-leaked key string remai
    - Has in-code auth signals: `guest-identity`, `guest-identity-upsert`, `me`, `me-stays`,
      `guest-profile`, `claim-init`, `claim-verify`, `workforce-jobs`, `workforce-profile`, `ai`.
    - **Zero auth signals:** `catalog_menu2` (public menu — intentionally open, low sensitivity).
-     (`ops-heatmap`, `staffing-plan`, `hotel-orders` were here too — all now **PROMOTED + secured**
-     2026-06-27 with assertAuthed + `vaiyu_is_hotel_member`; `hotel-orders`' unused open POST was dropped.)
+     (`hotel-orders` was here too — now **PROMOTED + secured** 2026-06-27, assertAuthed +
+     `vaiyu_is_hotel_member`, unused open POST dropped. `ops-heatmap` + `staffing-plan` were
+     **RETIRED** 2026-06-27 — rotted, deleted entirely.)
 2. Swap the legacy env reads → the new-key helpers (`publishableKey()` / `secretKey()` in
    `supabase/functions/_shared/keys.ts`) for consistency.
 3. Add `config.toml` `verify_jwt` entries as needed.

@@ -29,13 +29,6 @@ import {
   ArrowRight,
   type LucideIcon,
 } from "lucide-react";
-import {
-  fetchOpsHeatmap,
-  fetchStaffingPlan,
-  type OpsHeatmapPoint,
-  type StaffingPlanRow,
-} from "../lib/api";
-
 import SlaPerformanceChart from "../components/analytics/SlaPerformanceChart";
 import TaskVolumeChart from "../components/analytics/TaskVolumeChart";
 import { getDashboardMetrics, type DashboardMetrics } from "../lib/dashboardApi";
@@ -343,12 +336,6 @@ export default function OwnerDashboard() {
   >(null);
   const [workforceLoading, setWorkforceLoading] = useState(false);
 
-  // AI Ops Co-pilot state (heatmap + staffing recommendations)
-  const [opsHeatmap, setOpsHeatmap] = useState<OpsHeatmapPoint[] | null>(null);
-  const [staffingPlan, setStaffingPlan] = useState<StaffingPlanRow[] | null>(
-    null
-  );
-  const [opsLoading, setOpsLoading] = useState(false);
   const [showMobileNav, setShowMobileNav] = useState(false);
 
   // Outstanding folio balance — money owed by currently in-house guests
@@ -935,53 +922,6 @@ export default function OwnerDashboard() {
     };
   }, [hotel?.id]);
 
-  useEffect(() => {
-    if (!hotel?.id || !HAS_FUNCS) {
-      setOpsHeatmap(null);
-      setStaffingPlan(null);
-      return;
-    }
-
-    let alive = true;
-
-    (async () => {
-      setOpsLoading(true);
-      try {
-        const now = new Date();
-        const to = now.toISOString();
-        const from = new Date(now);
-        from.setDate(from.getDate() - 7);
-        const fromIso = from.toISOString();
-
-        const [heat, plan] = await Promise.all([
-          fetchOpsHeatmap({
-            hotelId: hotel.id,
-            from: fromIso,
-            to,
-          }),
-          fetchStaffingPlan({
-            hotelId: hotel.id,
-            date: today,
-          }),
-        ]);
-
-        if (!alive) return;
-        setOpsHeatmap(heat ?? []);
-        setStaffingPlan(plan ?? []);
-      } catch {
-        if (!alive) return;
-        setOpsHeatmap([]);
-        setStaffingPlan([]);
-      } finally {
-        if (!alive) return;
-        setOpsLoading(false);
-      }
-    })();
-
-    return () => {
-      alive = false;
-    };
-  }, [hotel?.id, today]);
 
   /** ======= UI States ======= */
   if (loading) {
@@ -3931,62 +3871,6 @@ function WorkforceMini({
           </div>
         );
       })}
-    </div>
-  );
-}
-
-/** ========= AI mini summary ========= */
-
-function AiOpsMiniSummary({
-  heatmap,
-  staffingPlan,
-}: {
-  heatmap: OpsHeatmapPoint[] | null;
-  staffingPlan: StaffingPlanRow[] | null;
-}) {
-  const t = useOwnerT("owner-dashboard");
-  const plan = staffingPlan || [];
-  const heat = heatmap || [];
-
-  return (
-    <div className="space-y-3">
-      <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-        <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
-          {t("ai.suggestedStaffing", "Suggested staffing (today)")}
-        </div>
-        {plan.length === 0 ? (
-          <div className="mt-2 text-sm text-slate-300">{t("ai.notAvailable", "Not available")}</div>
-        ) : (
-          <div className="mt-2 space-y-2">
-            {plan.slice(0, 3).map((row) => (
-              <div key={row.department} className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="text-sm font-medium text-slate-100">
-                    {row.department}
-                  </div>
-                  <div className="text-[11px] text-slate-400">
-                    {t("ai.recommend", "Recommend {{rec}} (min {{min}}, max {{max}})", { rec: row.recommended_count, min: row.min_count, max: row.max_count })}
-                  </div>
-                </div>
-                <StatusBadge label={t("ai.badge", "AI")} tone="grey" />
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-        <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
-          {t("ai.heatmap", "Heatmap (7d)")}
-        </div>
-        {heat.length === 0 ? (
-          <div className="mt-2 text-sm text-slate-300">{t("ai.notAvailable", "Not available")}</div>
-        ) : (
-          <div className="mt-2 text-[11px] text-slate-400">
-            {t("ai.bucketsAnalyzed", "{{count}} buckets analyzed. Open full view in Ops Analytics for details.", { count: heat.length })}
-          </div>
-        )}
-      </div>
     </div>
   );
 }

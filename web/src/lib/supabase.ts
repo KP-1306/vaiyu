@@ -8,7 +8,7 @@ const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 // if env vars are missing, fail fast so we don't run with a half-configured client.
 if (!url || !SUPABASE_PUBLISHABLE_KEY) {
   throw new Error(
-    "Missing VITE_SUPABASE_URL or VITE_SUPABASE_PUBLISHABLE_KEY / VITE_SUPABASE_ANON_KEY",
+    "Missing VITE_SUPABASE_URL or VITE_SUPABASE_PUBLISHABLE_KEY",
   );
 }
 

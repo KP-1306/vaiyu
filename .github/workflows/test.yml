@@ -45,11 +45,11 @@ jobs:
 
       - name: Tests
         # Vitest loads `web/src/lib/supabase.ts` at module-init via service
-        # imports, which throws if VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY
+        # imports, which throws if VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY
         # are missing. The unit tests don't actually hit Supabase — they only
         # need the client to construct. Provide placeholder values that satisfy
         # the env check; CI does not (and should not) have real prod creds.
         env:
           VITE_SUPABASE_URL: http://127.0.0.1:54321
-          VITE_SUPABASE_ANON_KEY: ci-placeholder-anon-key
+          VITE_SUPABASE_PUBLISHABLE_KEY: ci-placeholder-publishable-key
         run: npm run test

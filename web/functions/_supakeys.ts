@@ -1,37 +1,22 @@
 // web/functions/_supakeys.ts
 //
-// Node/Netlify-side Supabase key resolution for the legacy → new-key migration.
-//
-// Unlike Edge Functions (where Supabase injects SUPABASE_SECRET_KEYS /
-// SUPABASE_PUBLISHABLE_KEYS as JSON), on Netlify these are plain env vars we set
-// ourselves. Prefer the new key, fall back to the legacy one so nothing breaks
-// before/after the Netlify env is switched.
+// Node/Netlify-side Supabase key resolution. The legacy JWT-based `anon` /
+// `service_role` keys were revoked (2026-06-26); on Netlify the new keys are plain
+// env vars we set ourselves: SUPABASE_SECRET_KEY / SUPABASE_PUBLISHABLE_KEY.
 
 export function secretKey(): string {
-  return (
-    process.env.SUPABASE_SECRET_KEY ||
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.SERVICE_ROLE_KEY ||
-    ""
-  );
+  return process.env.SUPABASE_SECRET_KEY || "";
 }
 
 export function publishableKey(): string {
-  return (
-    process.env.SUPABASE_PUBLISHABLE_KEY ||
-    process.env.SUPABASE_ANON_KEY ||
-    process.env.VITE_SUPABASE_ANON_KEY ||
-    ""
-  );
+  return process.env.SUPABASE_PUBLISHABLE_KEY || "";
 }
 
 /**
- * Headers for a service-role REST/RPC call. Legacy keys are JWTs (eyJ…) and may be
- * sent on Authorization; new sb_secret_ keys must go on apikey ONLY — the gateway
- * tries to parse a Bearer as a JWT and rejects a non-JWT with "Invalid JWT".
+ * Headers for a service-role REST/RPC call. New sb_secret_ keys go on `apikey`
+ * ONLY — the gateway parses an Authorization Bearer as a JWT and rejects a
+ * non-JWT with "Invalid JWT".
  */
 export function pgServiceHeaders(key: string): Record<string, string> {
-  return key.startsWith("eyJ")
-    ? { apikey: key, Authorization: `Bearer ${key}` }
-    : { apikey: key };
+  return { apikey: key };
 }

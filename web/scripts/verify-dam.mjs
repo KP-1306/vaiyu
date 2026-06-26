@@ -22,8 +22,8 @@ import { createClient } from '@supabase/supabase-js';
 import crypto from 'node:crypto';
 
 const SUPABASE_URL  = process.env.SUPABASE_URL  || 'http://127.0.0.1:54321';
-const ANON_KEY      = process.env.SUPABASE_ANON_KEY     || (() => { throw new Error('SUPABASE_ANON_KEY env var required'); })();
-const SERVICE_KEY   = process.env.SUPABASE_SERVICE_ROLE_KEY || (() => { throw new Error('SUPABASE_SERVICE_ROLE_KEY env var required'); })();
+const ANON_KEY      = process.env.SUPABASE_PUBLISHABLE_KEY || (() => { throw new Error('SUPABASE_PUBLISHABLE_KEY env var required'); })();
+const SERVICE_KEY   = process.env.SUPABASE_SECRET_KEY || (() => { throw new Error('SUPABASE_SECRET_KEY env var required'); })();
 
 const admin  = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 

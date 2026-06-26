@@ -163,10 +163,19 @@ The cron→fn invokers were re-verified: only `va_admin_invoke_alerts` +
 both target `verify_jwt=false` cut-over fns; `va_cron_invoke_fn` sends no auth header
 (verify_jwt=false targets). Nothing else depends on the legacy keys.
 
-**Still pending (your dashboard actions, when ready):**
-- Step 9–10: confirm legacy idle → **disable** legacy `anon` + `service_role` (reversible).
-- Step 11: **revoke** the legacy JWT secret → kills the originally-leaked key.
-- Phase D: drop the `?? legacy` fallbacks + lower access-token expiry 86400→3600.
+## MIGRATION COMPLETE (2026-06-26)
+
+- Legacy `anon` + `service_role` **disabled**, JWT signing **rotated** to ECC (P-256),
+  legacy HS256 secret **REVOKED** → the originally-leaked key is permanently dead.
+  Verified healthy after each step (JWKS=ECC; publishable/service-role/admin-alerts 200;
+  owner+guest+operator load on a fresh ECC login).
+- Pre-revoke discovery: 23 orphaned prod functions (no git source, old runtime). Deleted the
+  7 that verified the legacy secret (owner-review, me-spend, me-reviews, me-referrals,
+  me--stays-spend-reviews-referrals-, test-deploy, workforce-applications); 16 remain
+  (clutter, NOT legacy-dependent so they don't block anything) — triage separately.
+- **Phase D done:** dropped the `?? legacy` fallbacks (keys.ts / _supakeys.ts / supabaseKey.ts
+  + isServiceToken), pointed the 4 verify-*.mjs scripts + CI test.yml at the new keys, set
+  access-token expiry to 3600. App + helpers now read ONLY the new keys (835 tests pass).
 
 ## Rollback
 Until step 11 (revoke), everything is reversible: re-enable legacy keys (step 10),

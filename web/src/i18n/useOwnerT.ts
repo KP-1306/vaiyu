@@ -28,7 +28,12 @@
 
 import { useCallback, useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
-import { persistLanguage, STORAGE_KEY, type AppLang } from './detect';
+import {
+  persistLanguage,
+  subscribeStoredLanguage,
+  STORAGE_KEY,
+  type AppLang,
+} from './detect';
 
 // Master switch for the whole owner console. OFF during the multi-tranche build:
 // prod owner console stays fully English no matter the saved language. Flip to
@@ -38,13 +43,11 @@ export const OWNER_I18N_ENABLED = true;
 /**
  * The owner console's active language — and the ONE place that decides it.
  *
- * Unlike the guest portal (which auto-selects Hindi from the device language for
- * a zero-tap experience), the owner console DEFAULTS TO ENGLISH and switches to
- * Hindi ONLY when the owner has explicitly chosen it — via the EN|हिं toggle or a
- * `?lang=hi` deep link. Those are the only paths that write `vaiyu.lang` to
- * localStorage; a Hindi-set device resolves in memory but never persists, so it
- * never flips an owner here. (This is why we read the saved key directly rather
- * than `i18n.language`, which would carry the device default.) Always 'en' while
+ * The whole app DEFAULTS TO ENGLISH and switches to Hindi ONLY on an explicit
+ * choice — the EN|हिं toggle or a `?lang=hi` deep link (the only paths that write
+ * `vaiyu.lang`; device language is never auto-detected, see i18n/detect.ts). We
+ * read the saved key directly rather than `i18n.language` so the reveal-gate can
+ * force English here regardless of the global language. Always 'en' while
  * reveal-gated.
  */
 export function readOwnerLang(): 'en' | 'hi' {
@@ -61,25 +64,33 @@ export function readOwnerLang(): 'en' | 'hi' {
 }
 
 // --- Reactive owner-language store ---------------------------------------
-// Owner content is driven by the SAVED choice (readOwnerLang), not i18n.language,
-// so we can't rely on i18next's 'languageChanged' to re-render: on a Hindi device
-// the global language is already 'hi', so an owner opting in to Hindi would call
-// changeLanguage('hi') — a no-op that emits nothing. This tiny external store
-// guarantees every owner consumer re-renders the moment the choice changes.
+// Owner content is driven by the SAVED choice (readOwnerLang), which can diverge
+// from i18n.language (e.g. while reveal-gated readOwnerLang is forced to 'en'),
+// so we can't rely solely on i18next's 'languageChanged' to re-render. This tiny
+// external store guarantees every owner consumer re-renders the moment the choice
+// changes via setOwnerLang.
 const ownerLangListeners = new Set<() => void>();
+function notifyOwnerLang(): void {
+  ownerLangListeners.forEach((l) => l());
+}
 function subscribeOwnerLang(cb: () => void): () => void {
   ownerLangListeners.add(cb);
   return () => ownerLangListeners.delete(cb);
 }
 
+// Cross-tab sync (one module-level listener for the whole store): when the saved
+// language changes in ANOTHER tab, re-render every owner consumer so the owner
+// console follows the same choice live instead of staying stale until reload.
+subscribeStoredLanguage(() => notifyOwnerLang());
+
 /**
  * Persist the owner's explicit language choice and re-render every owner
- * consumer. The owner toggle calls this; it does NOT touch the guest portal's
- * device-language behaviour (only the shared saved choice).
+ * consumer. The owner toggle calls this; it does NOT auto-detect device language
+ * (it only writes the shared saved choice — see i18n/detect.ts).
  */
 export function setOwnerLang(lang: AppLang): void {
   persistLanguage(lang);
-  ownerLangListeners.forEach((l) => l());
+  notifyOwnerLang();
 }
 
 /** Reactive read of the owner language (re-renders on setOwnerLang). */

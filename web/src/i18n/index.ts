@@ -11,6 +11,7 @@ import resourcesToBackend from 'i18next-resources-to-backend';
 import {
   resolveInitialLanguage,
   persistLanguage,
+  subscribeStoredLanguage,
   SUPPORTED_LANGS,
   type AppLang,
 } from './detect';
@@ -46,6 +47,14 @@ i18n.on('languageChanged', (lng) => {
   applyHtmlLang(lang);
   ensureFontForLang(lang);
   persistLanguage(lang);
+});
+
+// Keep other open tabs in sync: when the language is toggled in one tab, every
+// other tab follows live (the `storage` event fires only in the OTHER tabs). The
+// resulting changeLanguage re-persists the same value, which is a no-op write that
+// emits no further storage event — so there is no cross-tab feedback loop.
+subscribeStoredLanguage((lang) => {
+  if (i18n.language?.split('-')[0] !== lang) void i18n.changeLanguage(lang);
 });
 
 export default i18n;

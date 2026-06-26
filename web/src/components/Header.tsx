@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import AccountControls from "./AccountControls";
+import { LanguageToggle } from "../i18n/LanguageToggle";
 
 export default function Header() {
   const { pathname, hash } = useLocation();
@@ -71,8 +72,9 @@ export default function Header() {
           </Link>
         </nav>
 
-        {/* Right side: account menu only */}
-        <div className="ml-auto flex items-center gap-4">
+        {/* Right side: language switch + account menu */}
+        <div className="ml-auto flex items-center gap-3">
+          <LanguageToggle />
           <AccountControls theme="dark" />
         </div>
       </div>

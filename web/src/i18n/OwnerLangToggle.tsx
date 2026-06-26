@@ -5,11 +5,11 @@
 // so it can be mounted in every owner shell now and "turns on" the day the flag
 // flips. Reuses the guest toggle's dark-themed markup/CSS.
 //
-// Unlike the guest LanguageToggle (whose active state follows i18n.language, i.e.
-// the device default), this toggle's active state is driven by readOwnerLang():
-// the owner console is ENGLISH-DEFAULT and only shows Hindi on an explicit opt-in.
-// So on a Hindi-set device with no saved choice, the pill correctly reads EN and
-// matches the (English) content — they never disagree.
+// Unlike the guest LanguageToggle (whose active state follows i18n.language),
+// this toggle's active state is driven by readOwnerLang(), which is forced to
+// 'en' while reveal-gated — so the pill always matches the (gated-English)
+// content and the two never disagree. Both default to English: the app never
+// auto-detects the device language (see i18n/detect.ts).
 
 import { useTranslation } from 'react-i18next';
 import { SUPPORTED_LANGS, type AppLang } from './detect';

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import SEO from "../components/SEO";
+import { LanguageToggle } from "../i18n/LanguageToggle";
 
 export default function Contact() {
   const navigate = useNavigate();
@@ -53,6 +54,9 @@ export default function Contact() {
         }}
       >
         <div className="relative z-[1] mx-auto max-w-6xl px-4 py-16 sm:py-20">
+          <div className="flex justify-end mb-6">
+            <LanguageToggle />
+          </div>
           <span className="inline-flex items-center gap-2 rounded-full bg-[#1a1816] border border-[#d4af37]/20 px-3 py-1 text-xs text-[#d4af37]">
             ✉️ {t("hero.badge", "Contact")}
           </span>

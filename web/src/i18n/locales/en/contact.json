@@ -1,0 +1,49 @@
+{
+  "seo": {
+    "title": "Contact",
+    "desc": "Request a demo or ask anything about VAiyu — AI OS for hotels."
+  },
+  "hero": {
+    "badge": "Contact",
+    "title": "Contact VAiyu",
+    "subtitleHtml": "Partner with us to bring <b>truth-anchored AI</b> to your hotel — faster service, clearer SLAs, happier guests.",
+    "send": "Send a message",
+    "backHome": "Back to home"
+  },
+  "sales": { "title": "Talk to sales", "desc": "Rollout, pricing, ROI." },
+  "support": { "title": "Customer support", "desc": "We’re here 24×7 for critical issues." },
+  "press": { "title": "Press & partnerships", "desc": "Media kit, interviews, ecosystem.", "link": "Press resources" },
+  "offices": {
+    "title": "Offices",
+    "globalLabel": "Global (Remote-first)",
+    "globalDesc": "Teams across IST • CET • PT",
+    "hqLabel": "Registered HQ",
+    "hqDesc": "Will update on launch"
+  },
+  "form": {
+    "title": "Send us a message",
+    "name": "Your name",
+    "email": "Work email",
+    "company": "Company / Hotel",
+    "subject": "Subject",
+    "subjectPlaceholder": "Optional",
+    "message": "Message",
+    "messagePlaceholder": "Tell us a bit about your property and goals…",
+    "sending": "Sending…",
+    "submit": "Request a demo",
+    "sendEmail": "Send via email",
+    "consentHtml": "By contacting us you agree to our <a href=\"/privacy\">Privacy Policy</a>.",
+    "preferHtml": "Prefer to write directly? Email <a href=\"mailto:support@vaiyu.co.in\">support@vaiyu.co.in</a>."
+  },
+  "errors": {
+    "generic": "Something went wrong. Please try the ‘Send via email’ button instead.",
+    "network": "Network error. Please try the ‘Send via email’ button instead."
+  },
+  "mailtoOk": "Opening your email client… If nothing appears, write to support@vaiyu.co.in.",
+  "faq": {
+    "title": "FAQ",
+    "item1": "We typically respond within one business day.",
+    "item2Html": "For urgent issues, please write to <a href=\"mailto:support@vaiyu.co.in\">support@vaiyu.co.in</a>.",
+    "item3": "We support pilots for single properties as well as chains."
+  }
+}

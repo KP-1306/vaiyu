@@ -12,6 +12,7 @@ import {
     Star, UserCircle, Map, Paintbrush, Coffee, LogOut, Home
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import { AMENITY_CATALOG } from "../config/amenities";
 import { ImageUpload } from "../components/ImageUpload";
 import { roomTypeLocalizationCoverage } from "../i18n/localizeRoomType";
 
@@ -106,11 +107,9 @@ const STEPS = [
     { key: "features", label: "Included Features", icon: Zap, desc: "Capabilities active on go-live" },
 ];
 
-const AMENITY_LIST = [
-    "Wi-Fi", "Pool", "Spa", "Gym", "Restaurant", "Bar", "Room Service",
-    "Parking", "Airport Shuttle", "Laundry", "AC", "Pet Friendly",
-    "Business Center", "Concierge", "EV Charging", "Kids Club",
-];
+// Catalogue is the single source of truth (config/amenities.ts); a CI guard
+// asserts every entry has a curated Hindi display for the guest portal.
+const AMENITY_LIST = AMENITY_CATALOG;
 
 const ROLE_OPTIONS = ["Admin", "Manager", "Front Desk", "Receptionist", "Housekeeper", "Maintenance", "Security", "Concierge"];
 

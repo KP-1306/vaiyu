@@ -47,7 +47,8 @@ function normalizeKey(s: string): string {
 /**
  * Localise a single amenity label for display. Returns the input unchanged for
  * English, for an unknown language, or for a value not in the catalogue (a
- * legacy / custom string) — so it degrades gracefully to the stored English.
+ * legacy / custom free-text string, e.g. one typed into the OwnerSettings
+ * amenities CSV) — so it degrades gracefully to the stored English.
  */
 export function localizeAmenity(
   name: string | null | undefined,
@@ -58,4 +59,14 @@ export function localizeAmenity(
   const dict = AMENITY_DICTS[base];
   if (!dict) return name;
   return dict[normalizeKey(name)] ?? name;
+}
+
+/**
+ * Whether a curated Hindi display exists for `name`. Used by the CI coverage
+ * guard so every catalogue amenity (config/amenities.ts AMENITY_CATALOG) is
+ * guaranteed a translation — a new amenity added without one fails the build,
+ * rather than silently rendering English on the Hindi guest portal.
+ */
+export function hasAmenityHindi(name: string): boolean {
+  return normalizeKey(name) in AMENITY_HI;
 }

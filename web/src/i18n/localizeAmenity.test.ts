@@ -1,32 +1,28 @@
 import { describe, it, expect } from "vitest";
-import { localizeAmenity } from "./localizeAmenity";
-
-// The closed catalogue the owner toggles in onboarding (HotelOnboarding
-// AMENITY_LIST). Every entry must have a Hindi display so a guest never sees a
-// raw English amenity in Hindi mode.
-const AMENITY_LIST = [
-  "Wi-Fi", "Pool", "Spa", "Gym", "Restaurant", "Bar", "Room Service",
-  "Parking", "Airport Shuttle", "Laundry", "AC", "Pet Friendly",
-  "Business Center", "Concierge", "EV Charging", "Kids Club",
-];
+import { localizeAmenity, hasAmenityHindi } from "./localizeAmenity";
+import { AMENITY_CATALOG } from "../config/amenities";
 
 describe("localizeAmenity", () => {
   it("English is unchanged", () => {
-    for (const a of AMENITY_LIST) expect(localizeAmenity(a, "en")).toBe(a);
+    for (const a of AMENITY_CATALOG) expect(localizeAmenity(a, "en")).toBe(a);
   });
 
-  it("every catalogue amenity resolves in Hindi", () => {
-    for (const a of AMENITY_LIST) {
+  // COVERAGE GUARD: every catalogue amenity must have a curated Hindi entry, so
+  // adding a new amenity to config/amenities.ts WITHOUT a translation fails CI
+  // instead of silently rendering English on the Hindi guest portal.
+  it("every catalogue amenity has a Hindi display", () => {
+    const missing = AMENITY_CATALOG.filter((a) => !hasAmenityHindi(a));
+    expect(missing, `add Hindi for these in localizeAmenity.ts: ${missing.join(", ")}`).toEqual([]);
+  });
+
+  it("non-retained amenities render in Devanagari", () => {
+    // Tech/brand terms stay English on purpose; everything else must change.
+    const retained = new Set(["Wi-Fi", "AC", "EV Charging"]);
+    for (const a of AMENITY_CATALOG) {
+      if (retained.has(a)) continue;
       const hi = localizeAmenity(a, "hi");
-      // Tech/brand terms stay English on purpose; everything else must change.
-      const retained = ["Wi-Fi", "AC", "EV Charging"];
-      if (retained.includes(a)) {
-        // still resolved (present in the map), just retained/partly English
-        expect(hi).toBeTruthy();
-      } else {
-        expect(hi).not.toBe(a);
-        expect(/[ऀ-ॿ]/.test(hi)).toBe(true); // contains Devanagari
-      }
+      expect(hi).not.toBe(a);
+      expect(/[ऀ-ॿ]/.test(hi), `${a} -> ${hi}`).toBe(true);
     }
   });
 
@@ -35,7 +31,9 @@ describe("localizeAmenity", () => {
     expect(localizeAmenity("room service", "hi")).toBe(localizeAmenity("Room Service", "hi"));
   });
 
-  it("passes through unknown / custom values + handles hi-IN", () => {
+  it("passes through unknown / custom free-text values + handles hi-IN", () => {
+    // Custom amenities (e.g. typed into the OwnerSettings CSV) degrade to the
+    // stored string rather than breaking.
     expect(localizeAmenity("Rooftop Helipad", "hi")).toBe("Rooftop Helipad");
     expect(localizeAmenity("Pool", "hi-IN-u-nu-latn")).toBe(localizeAmenity("Pool", "hi"));
     expect(localizeAmenity("", "hi")).toBe("");

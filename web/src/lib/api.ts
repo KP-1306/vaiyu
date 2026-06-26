@@ -2123,7 +2123,7 @@ export async function fetchOpsHeatmap(params: {
   if (params.to) search.set("to", params.to);
   const qs = search.toString();
   const path = `/ops-heatmap${qs ? `?${qs}` : ""}`;
-  return req<OpsHeatmapPoint[]>(path);
+  return req<OpsHeatmapPoint[]>(path, { headers: await getAuthHeaders() });
 }
 
 export async function fetchStaffingPlan(params: {
@@ -2135,7 +2135,7 @@ export async function fetchStaffingPlan(params: {
   search.set("date", params.date);
   const qs = search.toString();
   const path = `/staffing-plan${qs ? `?${qs}` : ""}`;
-  return req<StaffingPlanRow[]>(path);
+  return req<StaffingPlanRow[]>(path, { headers: await getAuthHeaders() });
 }
 
 /* ============================================================================

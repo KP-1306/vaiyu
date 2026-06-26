@@ -19,8 +19,10 @@ legacy-key disable + JWT-secret revoke (verified: `workforce-jobs` returns real 
 So the revoke did **not** break them, and the originally-leaked key string remains dead.
 
 ## Usage map (which app surface calls each)
-- **Owner console (active):** `ai` (UsageMeter on OwnerSettings/OwnerHome),
-  `ops-heatmap` + `staffing-plan` (OwnerDashboard on-mount).
+- **Owner console (active):** `ai` (UsageMeter on OwnerSettings/OwnerHome).
+  > `ops-heatmap` + `staffing-plan` were **PROMOTED** to `supabase/functions/` and **secured**
+  > (assertAuthed + `vaiyu_is_hotel_member` gate + new secret key) on 2026-06-27 — no longer here.
+  > They were open cross-tenant service-role endpoints; now require hotel membership.
 - **Guest portal (old architecture, via lib/api.ts + VITE_API_URL=functions-base):**
   `me`, `me-stays`, `guest-identity`, `guest-identity-upsert`, `guest-profile`,
   `hotel-orders`, `catalog_menu2`.
@@ -34,7 +36,8 @@ So the revoke did **not** break them, and the originally-leaked key string remai
    - Has in-code auth signals: `guest-identity`, `guest-identity-upsert`, `me`, `me-stays`,
      `guest-profile`, `claim-init`, `claim-verify`, `workforce-jobs`, `workforce-profile`, `ai`.
    - **Zero auth signals — review for exposure first:** `catalog_menu2` (public menu, likely ok),
-     `hotel-orders`, `ops-heatmap`, `staffing-plan`.
+     `hotel-orders` (confirmed open read+write hole — retire if superseded, else rewrite with guest auth).
+     (`ops-heatmap`/`staffing-plan` were here too — now promoted + secured, see above.)
 2. Swap the legacy env reads → the new-key helpers (`publishableKey()` / `secretKey()` in
    `supabase/functions/_shared/keys.ts`) for consistency.
 3. Add `config.toml` `verify_jwt` entries as needed.

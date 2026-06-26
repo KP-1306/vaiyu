@@ -1,6 +1,7 @@
 // web/src/components/HeroCarousel.tsx
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 export type Slide = {
   id: string;
@@ -23,6 +24,7 @@ export default function HeroCarousel({
   interval?: number;
   disableCtas?: boolean;
 }) {
+  const { t } = useTranslation("landing");
   const [i, setI] = useState(0);
 
   const prefReduced =
@@ -67,7 +69,7 @@ export default function HeroCarousel({
     <section
       className="relative isolate h-[72vh] min-h-[520px] max-h-[820px] w-full overflow-hidden rounded-[2rem] border border-[#d4af37]/20 bg-[#141210] shadow-[0_8px_32px_rgba(0,0,0,0.6)]"
       aria-roledescription="carousel"
-      aria-label="Highlights"
+      aria-label={t("hero.ariaHighlights", "Highlights")}
       aria-live="polite"
       tabIndex={0}
       onKeyDown={onKey}
@@ -164,7 +166,7 @@ export default function HeroCarousel({
               <button
                 key={s.id ?? idx}
                 type="button"
-                aria-label={`Go to slide ${idx + 1}`}
+                aria-label={t("hero.ariaGoTo", "Go to slide {{n}}", { n: idx + 1 })}
                 aria-current={idx === i}
                 onClick={() => goto(idx)}
                 style={{
@@ -190,7 +192,7 @@ export default function HeroCarousel({
           <button
             type="button"
             onClick={() => goto(i - 1)}
-            aria-label="Previous slide"
+            aria-label={t("hero.ariaPrev", "Previous slide")}
             className="hidden sm:block"
             style={{
               position: "absolute",
@@ -218,7 +220,7 @@ export default function HeroCarousel({
           <button
             type="button"
             onClick={() => goto(i + 1)}
-            aria-label="Next slide"
+            aria-label={t("hero.ariaNext", "Next slide")}
             className="hidden sm:block"
             style={{
               position: "absolute",

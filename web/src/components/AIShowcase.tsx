@@ -1,5 +1,8 @@
 // web/src/components/AIShowcase.tsx
+import { useTranslation } from "react-i18next";
+
 export default function AIShowcase() {
+  const { t } = useTranslation("landing");
   return (
     <section className="bg-transparent">
       <div className="mx-auto max-w-7xl px-6 md:px-8 py-12 md:py-20 space-y-24">
@@ -12,12 +15,12 @@ export default function AIShowcase() {
             alt="VAiyu AI Intelligence connecting Guest Experience, Property Efficiency, Brand Value, and Self-Improvement"
           />
           <Copy
-            eyebrow="AI that runs the hotel"
-            title="The Living Brain of Hospitality"
+            eyebrow={t("aiShowcase.b1.eyebrow", "AI that runs the hotel")}
+            title={t("aiShowcase.b1.title", "The Living Brain of Hospitality")}
             bullets={[
-              "Elevates guest experience with real-time intelligence",
-              "Guides teams with predictive SLAs and precise nudges",
-              "Owner-approved outputs — brand-safe by design",
+              t("aiShowcase.b1.p1", "Elevates guest experience with real-time intelligence"),
+              t("aiShowcase.b1.p2", "Guides teams with predictive SLAs and precise nudges"),
+              t("aiShowcase.b1.p3", "Owner-approved outputs — brand-safe by design"),
             ]}
           // cta removed intentionally
           />
@@ -26,11 +29,11 @@ export default function AIShowcase() {
         {/* Block 2 — Content left, image right (keeps CTA) */}
         <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
           <Copy
-            title="VAiyu Intelligence — The AI Operating System"
+            title={t("aiShowcase.b2.title", "VAiyu Intelligence — The AI Operating System")}
             bullets={[
-              "Unifies Guest, Ops, and Sustainability signals into one truth graph",
-              "Predicts service risk; automates safely with audit trail",
-              "Delivers measurable outcomes and ESG reporting",
+              t("aiShowcase.b2.p1", "Unifies Guest, Ops, and Sustainability signals into one truth graph"),
+              t("aiShowcase.b2.p2", "Predicts service risk; automates safely with audit trail"),
+              t("aiShowcase.b2.p3", "Delivers measurable outcomes and ESG reporting"),
             ]}
           //   cta={{ label: "Learn the architecture", href: "#ai" }}
           />

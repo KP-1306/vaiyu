@@ -1,6 +1,8 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 
 export default function GlassBand_OnboardingSecurityIntegrations() {
+  const { t } = useTranslation("landing");
   return (
     <section id="trust" className="relative py-12">
       {/* Decorative dark glow background instead of light gradient */}
@@ -11,10 +13,10 @@ export default function GlassBand_OnboardingSecurityIntegrations() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-14">
           <h2 className="text-3xl sm:text-4xl font-bold text-[#f5f3ef]">
-            Onboarding • Security • Integrations
+            {t("trust.title", "Onboarding • Security • Integrations")}
           </h2>
           <p className="mt-4 text-[#b8b3a8] max-w-2xl mx-auto text-lg">
-            Speed to value in a day. Enterprise-secure. Connects to what you already use.
+            {t("trust.subtitle", "Speed to value in a day. Enterprise-secure. Connects to what you already use.")}
           </p>
         </div>
 
@@ -22,48 +24,48 @@ export default function GlassBand_OnboardingSecurityIntegrations() {
           <div className="grid md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-[#d4af37]/10">
             {/* A) 1-Day Onboarding */}
             <div className="p-8 sm:p-10">
-              <Header icon={<IconBolt />} title="1-Day Onboarding" />
+              <Header icon={<IconBolt />} title={t("trust.onboarding.title", "1-Day Onboarding")} />
               <ol className="mt-8 space-y-6">
-                <Step n={1} title="Connect hotel" body="Create property + services" />
-                <Step n={2} title="Turn on guest links" body="Pre-check-in, requests, menu" />
-                <Step n={3} title="Train staff (45 min)" body="HK + Front Desk workflows" />
-                <Step n={4} title="Go live" body="Monitor SLAs + AI review drafts" />
+                <Step n={1} title={t("trust.onboarding.s1t", "Connect hotel")} body={t("trust.onboarding.s1b", "Create property + services")} />
+                <Step n={2} title={t("trust.onboarding.s2t", "Turn on guest links")} body={t("trust.onboarding.s2b", "Pre-check-in, requests, menu")} />
+                <Step n={3} title={t("trust.onboarding.s3t", "Train staff (45 min)")} body={t("trust.onboarding.s3b", "HK + Front Desk workflows")} />
+                <Step n={4} title={t("trust.onboarding.s4t", "Go live")} body={t("trust.onboarding.s4b", "Monitor SLAs + AI review drafts")} />
               </ol>
-              <p className="mt-8 text-sm text-[#7a756a] italic">White-glove setup available.</p>
+              <p className="mt-8 text-sm text-[#7a756a] italic">{t("trust.onboarding.note", "White-glove setup available.")}</p>
             </div>
 
             {/* B) Security & Compliance */}
             <div className="p-8 sm:p-10">
-              <Header icon={<IconShield />} title="Security & Compliance" />
+              <Header icon={<IconShield />} title={t("trust.security.title", "Security & Compliance")} />
               <ul className="mt-8 grid gap-4">
-                <TrustTile icon={<IconCheck />} title="Supabase RLS" body="Row-level security; signed JWTs" />
-                <TrustTile icon={<IconCheck />} title="Data region" body="India by default or your choice" />
-                <TrustTile icon={<IconCheck />} title="Backups & audit logs" body="Daily backups + access trails" />
+                <TrustTile icon={<IconCheck />} title={t("trust.security.t1t", "Supabase RLS")} body={t("trust.security.t1b", "Row-level security; signed JWTs")} />
+                <TrustTile icon={<IconCheck />} title={t("trust.security.t2t", "Data region")} body={t("trust.security.t2b", "India by default or your choice")} />
+                <TrustTile icon={<IconCheck />} title={t("trust.security.t3t", "Backups & audit logs")} body={t("trust.security.t3b", "Daily backups + access trails")} />
                 <TrustTile
                   icon={<IconCheck />}
-                  title="Uptime"
-                  body={<><span>99.9% — </span><a href="/status" className="underline decoration-[#d4af37]/50 hover:decoration-[#d4af37] transition-all text-[#d4af37]">status page</a></>}
+                  title={t("trust.security.uptimeT", "Uptime")}
+                  body={<><span>{t("trust.security.uptimePrefix", "99.9% — ")}</span><a href="/status" className="underline decoration-[#d4af37]/50 hover:decoration-[#d4af37] transition-all text-[#d4af37]">{t("trust.security.statusPage", "status page")}</a></>}
                 />
               </ul>
               <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-emerald-900 bg-emerald-950/40 px-3 py-1 text-xs font-medium text-emerald-400">
-                Enterprise-grade
+                {t("trust.security.badge", "Enterprise-grade")}
               </div>
             </div>
 
             {/* C) Integrations */}
             <div className="p-8 sm:p-10">
-              <Header icon={<IconNodes />} title="Integrations" />
+              <Header icon={<IconNodes />} title={t("trust.integrations.title", "Integrations")} />
               <div className="mt-8 grid grid-cols-2 gap-3">
-                <LogoTile label="PMS" badge="Coming soon" />
-                <LogoTile label="Email" />
+                <LogoTile label="PMS" badge={t("trust.integrations.comingSoon", "Coming soon")} />
+                <LogoTile label={t("trust.integrations.email", "Email")} />
                 <LogoTile label="SMS" />
-                <LogoTile label="WhatsApp" badge="Beta" />
+                <LogoTile label="WhatsApp" badge={t("trust.integrations.beta", "Beta")} />
                 <LogoTile label="UPI" />
-                <LogoTile label="Cards" />
+                <LogoTile label={t("trust.integrations.cards", "Cards")} />
                 <LogoTile label="Netlify" />
                 <LogoTile label="Supabase" />
               </div>
-              <p className="mt-8 text-sm text-[#7a756a]">Clear roadmap with adapters. Owners appreciate transparency.</p>
+              <p className="mt-8 text-sm text-[#7a756a]">{t("trust.integrations.note", "Clear roadmap with adapters. Owners appreciate transparency.")}</p>
             </div>
           </div>
         </div>

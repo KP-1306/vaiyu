@@ -1,11 +1,13 @@
 // web/src/components/Header.tsx
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import AccountControls from "./AccountControls";
 
 export default function Header() {
   const { pathname, hash } = useLocation();
   const navigate = useNavigate();
+  const { t } = useTranslation("landing");
 
   // Smooth-scroll for in-page anchors (#ai, #why)
   useEffect(() => {
@@ -50,22 +52,22 @@ export default function Header() {
             onClick={onAnchor("why")}
             className="text-[#b8b3a8] hover:text-[#d4af37] hover:-translate-y-0.5 transition-all"
           >
-            Why VAiyu
+            {t("nav.whyVaiyu", "Why VAiyu")}
           </a>
           <a
             href="#ai"
             onClick={onAnchor("ai")}
             className="text-[#b8b3a8] hover:text-[#d4af37] hover:-translate-y-0.5 transition-all"
           >
-            AI Engine
+            {t("nav.aiEngine", "AI Engine")}
           </a>
 
           <Link to="/contact" className="text-[#b8b3a8] hover:text-[#d4af37] hover:-translate-y-0.5 transition-all">
-            Use-cases
+            {t("nav.useCases", "Use-cases")}
           </Link>
 
           <Link to="/about" className="text-[#b8b3a8] hover:text-[#d4af37] hover:-translate-y-0.5 transition-all">
-            About
+            {t("nav.about", "About")}
           </Link>
         </nav>
 

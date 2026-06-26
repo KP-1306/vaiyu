@@ -1,6 +1,8 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 
 export default function LiveProductPeek() {
+  const { t } = useTranslation("landing");
   const items = [
     { tag: "Guest", poster: "/illustrations/peek_guest.webp", y: 0 },
     { tag: "Staff", poster: "/illustrations/peek_staff.webp", y: -10 },
@@ -14,9 +16,9 @@ export default function LiveProductPeek() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Heading */}
         <div className="text-center mb-16">
-          <h2 className="text-3xl sm:text-4xl font-bold text-[#f5f3ef]">Live Product Peek</h2>
+          <h2 className="text-3xl sm:text-4xl font-bold text-[#f5f3ef]">{t("peek.title", "Live Product Peek")}</h2>
           <p className="mt-4 text-[#b8b3a8] max-w-3xl mx-auto text-lg">
-            Three quick flows, captured from the real product.
+            {t("peek.subtitle", "Three quick flows, captured from the real product.")}
           </p>
         </div>
 
@@ -29,7 +31,7 @@ export default function LiveProductPeek() {
             >
               <div className="border-b border-[#d4af37]/10 bg-[#1a1816] px-4 py-3 flex items-center justify-between">
                 <div className="text-xs font-semibold tracking-wider uppercase text-[#d4af37]">
-                  {it.tag}
+                  {t(`peek.tag${it.tag}`, it.tag)}
                 </div>
                 <div className="flex gap-1.5">
                   <div className="h-2.5 w-2.5 rounded-full bg-red-500/20 border border-red-500/50" />

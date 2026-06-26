@@ -1,6 +1,7 @@
 // web/src/routes/MarketingHome.tsx
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 import SEO from "../components/SEO";
 import HeroCarousel, { type Slide } from "../components/HeroCarousel";
@@ -62,6 +63,7 @@ function TrophyIcon(props: React.SVGProps<SVGSVGElement>) {
 }
 
 export default function MarketingHome() {
+  const { t } = useTranslation("landing");
   // Optional: keep your auth hardening
   useIdleSignOut({ maxIdleMinutes: 180 });
   useFocusAuthCheck();
@@ -123,64 +125,64 @@ export default function MarketingHome() {
     () => [
       {
         id: "ai-hero",
-        headline: "Where Intelligence Meets Comfort",
-        sub: "AI turns live stay activity into faster service and delightful guest journeys.",
-        cta: { label: "Learn more", href: "#why" },
+        headline: t("hero.slides.aiHero.headline", "Where Intelligence Meets Comfort"),
+        sub: t("hero.slides.aiHero.sub", "AI turns live stay activity into faster service and delightful guest journeys."),
+        cta: { label: t("hero.slides.aiHero.cta", "Learn more"), href: "#why" },
         variant: "photo",
         img: "/hero/ai-hero.webp",
         imgAlt: "AI hero background",
       },
       {
         id: "checkin",
-        headline: "10-second Mobile Check-in",
-        sub: "Scan, confirm, head to your room. No kiosk queues.",
-        cta: { label: "See how it works", href: "#ai" },
+        headline: t("hero.slides.checkin.headline", "10-second Mobile Check-in"),
+        sub: t("hero.slides.checkin.sub", "Scan, confirm, head to your room. No kiosk queues."),
+        cta: { label: t("hero.slides.checkin.cta", "See how it works"), href: "#ai" },
         variant: "photo",
         img: "/hero/checkin.webp",
         imgAlt: "Guest scanning QR at the front desk",
       },
       {
         id: "sla",
-        headline: "SLA Nudges for Staff",
-        sub: "On-time nudges and a clean digest keep service humming.",
+        headline: t("hero.slides.sla.headline", "SLA Nudges for Staff"),
+        sub: t("hero.slides.sla.sub", "On-time nudges and a clean digest keep service humming."),
         cta: isStaffSide
-          ? { label: "Staff workspace", href: staffHomeHref }
-          : { label: "For hotels", href: ownerHomeHref },
+          ? { label: t("hero.slides.sla.ctaStaff", "Staff workspace"), href: staffHomeHref }
+          : { label: t("hero.slides.sla.ctaHotels", "For hotels"), href: ownerHomeHref },
         variant: "photo",
         img: "/hero/sla.webp",
         imgAlt: "Tablet with SLA dashboard",
       },
       {
         id: "reviews",
-        headline: "Truth-Anchored Reviews",
-        sub: "AI drafts grounded in verified stay data—owners approve, brand stays safe.",
-        cta: { label: "Moderation overview", href: "/about-ai" },
+        headline: t("hero.slides.reviews.headline", "Truth-Anchored Reviews"),
+        sub: t("hero.slides.reviews.sub", "AI drafts grounded in verified stay data—owners approve, brand stays safe."),
+        cta: { label: t("hero.slides.reviews.cta", "Moderation overview"), href: "/about-ai" },
         variant: "photo",
         img: "/hero/reviews.webp",
         imgAlt: "Owner reviewing AI draft",
       },
       {
         id: "grid-smart",
-        headline: "Grid-Smart Operations & Sustainability",
-        sub: "Tariff-aware actions and device shedding without drama.",
-        cta: { label: "Learn about grid mode", href: "/grid/devices" },
+        headline: t("hero.slides.gridSmart.headline", "Grid-Smart Operations & Sustainability"),
+        sub: t("hero.slides.gridSmart.sub", "Tariff-aware actions and device shedding without drama."),
+        cta: { label: t("hero.slides.gridSmart.cta", "Learn about grid mode"), href: "/grid/devices" },
         variant: "photo",
         img: "/hero/grid.webp",
         imgAlt: "Energy dashboard on wall tablet",
       },
       {
         id: "owner-console",
-        headline: "AI-Driven Owner Console",
-        sub: "Digest, usage, moderation and KPIs—clean, fast, reliable.",
+        headline: t("hero.slides.ownerConsole.headline", "AI-Driven Owner Console"),
+        sub: t("hero.slides.ownerConsole.sub", "Digest, usage, moderation and KPIs—clean, fast, reliable."),
         cta: isOwnerSide
-          ? { label: "Open owner home", href: ownerHomeHref }
-          : { label: "For hotels", href: ownerHomeHref },
+          ? { label: t("hero.slides.ownerConsole.ctaOwner", "Open owner home"), href: ownerHomeHref }
+          : { label: t("hero.slides.ownerConsole.ctaHotels", "For hotels"), href: ownerHomeHref },
         variant: "photo",
         img: "/hero/owner-console.webp",
         imgAlt: "Owner console KPIs on monitor",
       },
     ],
-    [isOwnerSide, isStaffSide, ownerHomeHref, staffHomeHref]
+    [t, isOwnerSide, isStaffSide, ownerHomeHref, staffHomeHref]
   );
 
   const site =
@@ -204,8 +206,8 @@ export default function MarketingHome() {
     <div className="min-h-screen bg-[#0a0a0c] text-[#f5f3ef]">
       {/* SEO */}
       <SEO
-        title="VAiyu — AI OS for Hotels"
-        description="Where Intelligence Meets Comfort — verified reviews, refer-and-earn growth, and grid-smart operations."
+        title={t("seo.title", "VAiyu — AI OS for Hotels")}
+        description={t("seo.desc", "Where Intelligence Meets Comfort — verified reviews, refer-and-earn growth, and grid-smart operations.")}
         canonical={`${site}/`}
         ogImage="/og/home.png"
         twitter={{ site: "@vaiyu", card: "summary_large_image" }}
@@ -227,18 +229,18 @@ export default function MarketingHome() {
 
       {/* WHY (Upgraded to Dark Gold Theme) */}
       <section id="why" className="mx-auto max-w-7xl px-4 py-16 sm:py-24">
-        <h2 className="text-3xl sm:text-4xl font-bold text-[#f5f3ef]">The whole journey, upgraded</h2>
+        <h2 className="text-3xl sm:text-4xl font-bold text-[#f5f3ef]">{t("why.title", "The whole journey, upgraded")}</h2>
         <p className="text-[#b8b3a8] mt-3 text-lg">
-          Clear wins for guests, staff, owners, and your brand.
+          {t("why.subtitle", "Clear wins for guests, staff, owners, and your brand.")}
         </p>
 
         <div className="mt-10 rounded-3xl border border-[#d4af37]/20 bg-[#141210]/90 p-6 sm:p-10 shadow-[0_4px_24px_rgba(0,0,0,0.6)] backdrop-blur-md">
           <div className="rounded-2xl bg-[#0a0a0c] border border-[#d4af37]/10 p-8 sm:p-12 shadow-inner">
             <div className="text-center mb-12">
               <h3 className="text-3xl sm:text-4xl font-bold tracking-tight text-[#f5f3ef]">
-                One OS for Guests, Staff, and Owners
+                {t("why.osTitle", "One OS for Guests, Staff, and Owners")}
               </h3>
-              <p className="mt-4 text-[#b8b3a8] text-lg">Wins across guests, staff, owners, and brand.</p>
+              <p className="mt-4 text-[#b8b3a8] text-lg">{t("why.osSubtitle", "Wins across guests, staff, owners, and brand.")}</p>
             </div>
 
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -249,17 +251,17 @@ export default function MarketingHome() {
                     <SuitcaseIcon className="h-7 w-7" />
                   </div>
                   <div>
-                    <h4 className="font-semibold text-[#f5f3ef]">For Guests</h4>
+                    <h4 className="font-semibold text-[#f5f3ef]">{t("why.guests.title", "For Guests")}</h4>
                     <div className="text-[11px] font-bold text-sky-400 uppercase tracking-wider mt-1">
-                      Convenience
+                      {t("why.guests.tag", "Convenience")}
                     </div>
                   </div>
                 </div>
                 <ul className="mt-6 space-y-3 text-sm text-[#b8b3a8]">
-                  <li className="flex items-start gap-2"><span className="text-[#d4af37]">✓</span> Express mobile check-in</li>
-                  <li className="flex items-start gap-2"><span className="text-[#d4af37]">✓</span> In-app request tracking</li>
-                  <li className="flex items-start gap-2"><span className="text-[#d4af37]">✓</span> Room service made easy</li>
-                  <li className="flex items-start gap-2"><span className="text-[#d4af37]">✓</span> Refer credits among friends</li>
+                  <li className="flex items-start gap-2"><span className="text-[#d4af37]">✓</span> {t("why.guests.b1", "Express mobile check-in")}</li>
+                  <li className="flex items-start gap-2"><span className="text-[#d4af37]">✓</span> {t("why.guests.b2", "In-app request tracking")}</li>
+                  <li className="flex items-start gap-2"><span className="text-[#d4af37]">✓</span> {t("why.guests.b3", "Room service made easy")}</li>
+                  <li className="flex items-start gap-2"><span className="text-[#d4af37]">✓</span> {t("why.guests.b4", "Refer credits among friends")}</li>
                 </ul>
               </article>
 
@@ -270,17 +272,17 @@ export default function MarketingHome() {
                     <StaffIcon className="h-7 w-7" />
                   </div>
                   <div>
-                    <h4 className="font-semibold text-[#f5f3ef]">For Staff</h4>
+                    <h4 className="font-semibold text-[#f5f3ef]">{t("why.staff.title", "For Staff")}</h4>
                     <div className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider mt-1">
-                      Efficiency
+                      {t("why.staff.tag", "Efficiency")}
                     </div>
                   </div>
                 </div>
                 <ul className="mt-6 space-y-3 text-sm text-[#b8b3a8]">
-                  <li className="flex items-start gap-2"><span className="text-[#d4af37]">✓</span> Universal &amp; clear SLAs</li>
-                  <li className="flex items-start gap-2"><span className="text-[#d4af37]">✓</span> Live updates (no refresh)</li>
-                  <li className="flex items-start gap-2"><span className="text-[#d4af37]">✓</span> Auto-routing to teams</li>
-                  <li className="flex items-start gap-2"><span className="text-[#d4af37]">✓</span> Fewer calls, more action</li>
+                  <li className="flex items-start gap-2"><span className="text-[#d4af37]">✓</span> {t("why.staff.b1", "Universal & clear SLAs")}</li>
+                  <li className="flex items-start gap-2"><span className="text-[#d4af37]">✓</span> {t("why.staff.b2", "Live updates (no refresh)")}</li>
+                  <li className="flex items-start gap-2"><span className="text-[#d4af37]">✓</span> {t("why.staff.b3", "Auto-routing to teams")}</li>
+                  <li className="flex items-start gap-2"><span className="text-[#d4af37]">✓</span> {t("why.staff.b4", "Fewer calls, more action")}</li>
                 </ul>
               </article>
 
@@ -291,17 +293,17 @@ export default function MarketingHome() {
                     <BarsIcon className="h-7 w-7" />
                   </div>
                   <div>
-                    <h4 className="font-semibold text-[#f5f3ef]">For Owners</h4>
+                    <h4 className="font-semibold text-[#f5f3ef]">{t("why.owners.title", "For Owners")}</h4>
                     <div className="text-[11px] font-bold text-fuchsia-400 uppercase tracking-wider mt-1">
-                      Insights
+                      {t("why.owners.tag", "Insights")}
                     </div>
                   </div>
                 </div>
                 <ul className="mt-6 space-y-3 text-sm text-[#b8b3a8]">
-                  <li className="flex items-start gap-2"><span className="text-[#d4af37]">✓</span> SLA KPIs &amp; policy hints</li>
-                  <li className="flex items-start gap-2"><span className="text-[#d4af37]">✓</span> Bottleneck alerts</li>
-                  <li className="flex items-start gap-2"><span className="text-[#d4af37]">✓</span> Property-wide trends</li>
-                  <li className="flex items-start gap-2"><span className="text-[#d4af37]">✓</span> Energy-smart hours</li>
+                  <li className="flex items-start gap-2"><span className="text-[#d4af37]">✓</span> {t("why.owners.b1", "SLA KPIs & policy hints")}</li>
+                  <li className="flex items-start gap-2"><span className="text-[#d4af37]">✓</span> {t("why.owners.b2", "Bottleneck alerts")}</li>
+                  <li className="flex items-start gap-2"><span className="text-[#d4af37]">✓</span> {t("why.owners.b3", "Property-wide trends")}</li>
+                  <li className="flex items-start gap-2"><span className="text-[#d4af37]">✓</span> {t("why.owners.b4", "Energy-smart hours")}</li>
                 </ul>
               </article>
 
@@ -312,17 +314,17 @@ export default function MarketingHome() {
                     <TrophyIcon className="h-7 w-7" />
                   </div>
                   <div>
-                    <h4 className="font-semibold text-[#f5f3ef]">For Brand</h4>
+                    <h4 className="font-semibold text-[#f5f3ef]">{t("why.brand.title", "For Brand")}</h4>
                     <div className="text-[11px] font-bold text-amber-400 uppercase tracking-wider mt-1">
-                      Trust
+                      {t("why.brand.tag", "Trust")}
                     </div>
                   </div>
                 </div>
                 <ul className="mt-6 space-y-3 text-sm text-[#b8b3a8]">
-                  <li className="flex items-start gap-2"><span className="text-[#d4af37]">✓</span> Truth-based reviews</li>
-                  <li className="flex items-start gap-2"><span className="text-[#d4af37]">✓</span> Owner approval</li>
-                  <li className="flex items-start gap-2"><span className="text-[#d4af37]">✓</span> Label fewer</li>
-                  <li className="flex items-start gap-2"><span className="text-[#d4af37]">✓</span> Clear ranking impact</li>
+                  <li className="flex items-start gap-2"><span className="text-[#d4af37]">✓</span> {t("why.brand.b1", "Truth-based reviews")}</li>
+                  <li className="flex items-start gap-2"><span className="text-[#d4af37]">✓</span> {t("why.brand.b2", "Owner approval")}</li>
+                  <li className="flex items-start gap-2"><span className="text-[#d4af37]">✓</span> {t("why.brand.b3", "Label fewer")}</li>
+                  <li className="flex items-start gap-2"><span className="text-[#d4af37]">✓</span> {t("why.brand.b4", "Clear ranking impact")}</li>
                 </ul>
               </article>
             </div>
@@ -364,15 +366,15 @@ export default function MarketingHome() {
           <div className="flex flex-col md:flex-row items-center justify-between gap-10 relative z-10">
             <div className="text-center md:text-left max-w-2xl">
               <h3 className="text-3xl sm:text-4xl font-bold text-[#f5f3ef]">
-                Want a walkthrough for your property?
+                {t("cta.title", "Want a walkthrough for your property?")}
               </h3>
               <p className="text-[#b8b3a8] mt-4 text-xl">
-                We’ll brand the demo with your details and share a 7-day pilot plan.
+                {t("cta.subtitle", "We’ll brand the demo with your details and share a 7-day pilot plan.")}
               </p>
             </div>
             <div className="flex-shrink-0">
               <Link to="/contact" className="inline-flex items-center justify-center px-8 py-4 font-bold text-[#0a0a0c] bg-gradient-to-r from-[#e9c55a] to-[#d4af37] border border-[#d4af37] rounded-2xl hover:opacity-90 shadow-[0_0_24px_rgba(212,175,55,0.2)] hover:shadow-[0_0_36px_rgba(212,175,55,0.4)] hover:-translate-y-1 transition-all">
-                Contact us
+                {t("cta.button", "Contact us")}
               </Link>
             </div>
           </div>
@@ -382,16 +384,16 @@ export default function MarketingHome() {
       {/* Footer */}
       <footer className="border-t border-[#d4af37]/20 bg-[#0a0a0c]">
         <div className="mx-auto max-w-7xl px-4 py-10 text-sm text-[#7a756a] flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="font-medium tracking-wide">© {new Date().getFullYear()} VAiyu — Where Intelligence Meets Comfort.</div>
+          <div className="font-medium tracking-wide">{t("footer.copyright", "© {{year}} VAiyu — Where Intelligence Meets Comfort.", { year: new Date().getFullYear() })}</div>
           <div className="flex flex-wrap items-center justify-center gap-6">
-            <Link className="hover:text-[#d4af37] transition-colors" to="/about-ai">AI</Link>
-            <a className="hover:text-[#d4af37] transition-colors" href="#why">Why VAiyu</a>
-            <Link className="hover:text-[#d4af37] transition-colors" to="/about">About</Link>
-            <Link className="hover:text-[#d4af37] transition-colors" to="/press">Press</Link>
-            <Link className="hover:text-[#d4af37] transition-colors" to="/privacy">Privacy</Link>
-            <Link className="hover:text-[#d4af37] transition-colors" to="/terms">Terms</Link>
-            <Link className="hover:text-[#d4af37] transition-colors" to="/contact">Contact</Link>
-            <Link className="hover:text-[#d4af37] transition-colors" to="/careers">Careers</Link>
+            <Link className="hover:text-[#d4af37] transition-colors" to="/about-ai">{t("footer.ai", "AI")}</Link>
+            <a className="hover:text-[#d4af37] transition-colors" href="#why">{t("footer.whyVaiyu", "Why VAiyu")}</a>
+            <Link className="hover:text-[#d4af37] transition-colors" to="/about">{t("footer.about", "About")}</Link>
+            <Link className="hover:text-[#d4af37] transition-colors" to="/press">{t("footer.press", "Press")}</Link>
+            <Link className="hover:text-[#d4af37] transition-colors" to="/privacy">{t("footer.privacy", "Privacy")}</Link>
+            <Link className="hover:text-[#d4af37] transition-colors" to="/terms">{t("footer.terms", "Terms")}</Link>
+            <Link className="hover:text-[#d4af37] transition-colors" to="/contact">{t("footer.contact", "Contact")}</Link>
+            <Link className="hover:text-[#d4af37] transition-colors" to="/careers">{t("footer.careers", "Careers")}</Link>
           </div>
         </div>
       </footer>

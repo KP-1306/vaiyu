@@ -1,35 +1,22 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 
 export default function FAQShort() {
+  const { t } = useTranslation("landing");
   const faqs = [
-    {
-      q: "Do we need a PMS integration to start?",
-      a: "No. You can start in manual mode on day one — properties, rooms, services, tickets and guest links work out-of-the-box. PMS/PoS adapters can be added later without changing your workflows.",
-    },
-    {
-      q: "How do SLAs work?",
-      a: "Every ticket has a target time. We auto-route to the right team, start a countdown, nudge on risk, and show an on-time/late dashboard. SLA policies are configurable by service type and shift.",
-    },
-    {
-      q: "Can we moderate AI drafts?",
-      a: "Yes. AI drafts are never auto-published. Owners or designated approvers can review, edit, approve or reject. All drafts are traceable to verified stay data, with a full audit log.",
-    },
-    {
-      q: "What’s the pricing model?",
-      a: "Simple per-room, per-month pricing with tiers. A 7-day pilot is available; volume discounts for groups and annual commitments. Contact us for an exact quote for your portfolio.",
-    },
-    {
-      q: "How long does setup take?",
-      a: "You can be live in a day using demo data. With real data and branding, typical onboarding takes 2–5 days including roles, services, and guest links.",
-    },
+    { q: t("faq.q1", "Do we need a PMS integration to start?"), a: t("faq.a1", "No. You can start in manual mode on day one — properties, rooms, services, tickets and guest links work out-of-the-box. PMS/PoS adapters can be added later without changing your workflows.") },
+    { q: t("faq.q2", "How do SLAs work?"), a: t("faq.a2", "Every ticket has a target time. We auto-route to the right team, start a countdown, nudge on risk, and show an on-time/late dashboard. SLA policies are configurable by service type and shift.") },
+    { q: t("faq.q3", "Can we moderate AI drafts?"), a: t("faq.a3", "Yes. AI drafts are never auto-published. Owners or designated approvers can review, edit, approve or reject. All drafts are traceable to verified stay data, with a full audit log.") },
+    { q: t("faq.q4", "What’s the pricing model?"), a: t("faq.a4", "Simple per-room, per-month pricing with tiers. A 7-day pilot is available; volume discounts for groups and annual commitments. Contact us for an exact quote for your portfolio.") },
+    { q: t("faq.q5", "How long does setup take?"), a: t("faq.a5", "You can be live in a day using demo data. With real data and branding, typical onboarding takes 2–5 days including roles, services, and guest links.") },
   ];
 
   return (
     <section id="faq" className="py-12 bg-transparent">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-14">
-          <h2 className="text-3xl sm:text-4xl font-bold text-[#f5f3ef]">Frequently Asked Questions</h2>
-          <p className="mt-4 text-[#b8b3a8] text-lg">Short answers owners and operators ask first.</p>
+          <h2 className="text-3xl sm:text-4xl font-bold text-[#f5f3ef]">{t("faq.title", "Frequently Asked Questions")}</h2>
+          <p className="mt-4 text-[#b8b3a8] text-lg">{t("faq.subtitle", "Short answers owners and operators ask first.")}</p>
         </div>
 
         <div className="divide-y divide-[#d4af37]/10 rounded-[2rem] border border-[#d4af37]/20 bg-[#141210]/90 backdrop-blur-xl shadow-[0_10px_40px_-20px_rgba(0,0,0,0.6)] overflow-hidden">

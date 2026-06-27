@@ -2,23 +2,60 @@
 // Language resolution for the whole app (public site + guest portal; the owner
 // console reads the same saved choice via useOwnerT).
 //
-// English is the default everywhere. The language NEVER changes on its own —
-// only an explicit user action (the EN|हिं toggle) or a server-sent deep link
-// flips it. Priority order (highest wins):
+// English is the default. The language NEVER changes on its own except for one
+// scoped case (in-stay guests, below). Priority order (highest wins):
 //   1. ?lang=hi|en  URL param  — lets server-sent links (WhatsApp/SMS) deep-link
 //      a guest straight into their language; consumed into the saved choice.
 //   2. localStorage saved choice — the user's last explicit toggle on this device.
-//   3. fallback → English.
+//   3. In-stay guest entry only — when the FIRST page loaded is a personal-device
+//      guest surface (room-QR / guest deep-link, see isInStayGuestEntry), honour
+//      navigator.language so a Hindi-set phone opens those screens in Hindi with
+//      zero taps. This is IN-MEMORY ONLY — never persisted — so it does not leak
+//      to the owner console (readOwnerLang reads the saved choice) or to a later
+//      marketing visit; an explicit toggle is still what sticks. Marketing, owner,
+//      staff, admin and the check-in kiosk skip this and stay English.
+//   4. fallback → English.
 //
-// Device language (navigator.language) is deliberately NOT consulted: a phone set
-// to Hindi must still open VAiyu in English until the user chooses Hindi, so every
-// first-time visitor gets a consistent English experience (product decision,
-// 2026-06-27). No DB, no account: the device remembers the explicit choice.
+// The whole app therefore opens in English for marketing/owner/staff/admin (the
+// 2026-06-27 product decision), with the single deliberate exception that a guest
+// scanning a Hindi-phone room QR gets zero-tap Hindi (carve-out, 2026-06-27).
 
 export const SUPPORTED_LANGS = ['en', 'hi'] as const;
 export type AppLang = (typeof SUPPORTED_LANGS)[number];
 
 export const STORAGE_KEY = 'vaiyu.lang';
+
+// First path segments that are personal-device guest surfaces — reached by
+// scanning a room QR or following a guest deep-link. Used ONLY to decide whether
+// to honour the device language at first load (see resolveInitialLanguage); never
+// for routing or auth. Marketing (''/about/contact/…), owner, staff/admin, the
+// check-in kiosk ('checkin') and the pre-stay enquiry funnel ('p') are absent on
+// purpose so they stay English.
+const IN_STAY_GUEST_SEGMENTS = new Set<string>([
+  'guest', // GuestNew portal: home/trips/stay/request-service/checkout/support/bills/review
+  'scan', // QR entry that resolves the stay
+  'hotel', // /hotel/:slug reached from a QR
+  'menu', // /menu (food)
+  'stay', // /stay/:code/(menu|orders)
+  'bill', // guest bill
+  'checkout', // guest self-checkout
+  'precheckin', // /precheckin/:token
+  'feedback', // /feedback/:token (post-stay)
+  'regcard', // registration card
+  'claim', // /claim a stay
+  'requestTracker', // service-request tracker
+  'track', // /track/:displayId
+  'track-order', // /track-order/:id
+]);
+
+/**
+ * True when `pathname`'s first segment is an in-stay guest surface (room-QR /
+ * guest deep-link). Drives the device-language carve-out at first load only.
+ */
+export function isInStayGuestEntry(pathname: string): boolean {
+  const seg = (pathname || '/').split('/')[1] || '';
+  return IN_STAY_GUEST_SEGMENTS.has(seg);
+}
 
 function normalize(raw: string | null | undefined): AppLang | null {
   if (!raw) return null;
@@ -53,8 +90,25 @@ export function resolveInitialLanguage(): AppLang {
     /* storage blocked (private mode) — ignore */
   }
 
-  // 3. fallback → English. Device language is intentionally not consulted (see
-  //    header): the app only switches to Hindi on an explicit choice or ?lang.
+  // 3. In-stay guest entry only — honour the device language (in-memory, NOT
+  //    persisted) so a Hindi-set phone scanning a room QR opens the guest screens
+  //    in Hindi. Marketing/owner/staff/admin/kiosk skip this and fall through to
+  //    English. See header + isInStayGuestEntry.
+  try {
+    if (
+      typeof window !== 'undefined' &&
+      isInStayGuestEntry(window.location.pathname)
+    ) {
+      const fromDevice = normalize(
+        typeof navigator !== 'undefined' ? navigator.language : null,
+      );
+      if (fromDevice) return fromDevice;
+    }
+  } catch {
+    /* window/navigator unavailable — ignore */
+  }
+
+  // 4. fallback → English.
   return 'en';
 }
 

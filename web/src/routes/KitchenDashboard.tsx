@@ -69,6 +69,13 @@ export default function KitchenDashboard() {
     const [error, setError] = useState<string | null>(null);
     const [alarmActive, setAlarmActive] = useState(false); // [NEW] Alarm state
     const alarmRef = React.useRef<NodeJS.Timeout | null>(null);
+    // Coalesce overlapping refreshes. A kitchen action + the realtime events it
+    // emits (food_orders UPDATE + assignment INSERT + SLA INSERT) can each call
+    // fetchOrders() near-simultaneously; we run one at a time and re-run once at
+    // the end if more were requested, so the board ends on fresh data without a
+    // burst of redundant queries.
+    const fetchingRef = React.useRef(false);
+    const pendingFetchRef = React.useRef(false);
 
     // Stop alarm on any interaction
     const stopAlarm = () => {
@@ -99,6 +106,10 @@ export default function KitchenDashboard() {
 
     // Fetch Orders
     const fetchOrders = useCallback(async () => {
+        // Coalesce concurrent calls: if one is already running, mark that another
+        // refresh is wanted and let the in-flight one re-run when it finishes.
+        if (fetchingRef.current) { pendingFetchRef.current = true; return; }
+        fetchingRef.current = true;
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
@@ -146,13 +157,12 @@ export default function KitchenDashboard() {
                 mQueue = mData || [];
             }
 
-            // 4. SLA Risks (Optional for main list, but good for alerts)
-            const { data: sQueue, error: sErr } = await client
-                .from('v_food_orders_sla_risk')
-                .select('*')
-                .order('minutes_to_breach', { ascending: true });
-
-            if (sErr) throw sErr;
+            // SLA risk alerts are derived client-side from `orders` (see the
+            // `slaRisks` memo + the "SLA Risk Alerts" panel), so we do NOT query
+            // v_food_orders_sla_risk here. That fetch was dead — its result was
+            // never read — and it was the one board query without a
+            // vaiyu_is_hotel_member guard, so dropping it also keeps the refresh
+            // path entirely on the fast, hotel-scoped views.
 
             // Helper to map view row to FoodOrder shape
             const mapToOrder = (row: any, source: string): FoodOrder => {
@@ -210,6 +220,12 @@ export default function KitchenDashboard() {
             setError(err.message);
         } finally {
             setLoading(false);
+            fetchingRef.current = false;
+        }
+        // If refreshes were requested while this one ran, do exactly one more.
+        if (pendingFetchRef.current) {
+            pendingFetchRef.current = false;
+            void fetchOrders();
         }
     }, []);
 
@@ -315,11 +331,28 @@ export default function KitchenDashboard() {
                 throw error;
             }
 
+            // Optimistic move: the RPC succeeded, so advance this order's status
+            // in local state immediately. The card moves the instant you click,
+            // independent of the follow-up refetch — so a slow/failed refresh can
+            // never strand it (the bug that left ACCEPTED cards stuck in NEW).
+            const NEXT_STATUS: Record<string, OrderStatus> = {
+                ACCEPT: 'ACCEPTED',
+                PREPARE: 'PREPARING',
+                READY: 'READY',
+                DELIVER: 'DELIVERED',
+            };
+            const newStatus = NEXT_STATUS[action];
+            if (newStatus) {
+                setOrders((prev: FoodOrder[]) =>
+                    prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o)),
+                );
+            }
+
             // Auto-switch tabs based on workflow
             if (action === 'ACCEPT') setActiveKitchenTab('ACCEPTED');
             if (action === 'PREPARE') setActiveKitchenTab('PREPARING');
 
-            fetchOrders(); // Optimistic update would be better but simple reload works
+            fetchOrders(); // reconcile with the server (best-effort; the optimistic move stands regardless)
         } catch (e: any) {
             alert(`Action failed: ${e.message}`);
         }

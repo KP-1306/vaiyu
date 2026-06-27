@@ -1,0 +1,70 @@
+-- Restore definer-rights on operational-board views that were collaterally
+-- flipped to security_invoker, which timed the kitchen board out on prod.
+--
+-- Symptom (prod): after a kitchen action (e.g. ACCEPT), fetchOrders() threw
+--   GET /rest/v1/v_my_food_orders 500  + /rest/v1/v_runner_queue 500
+--   {code:'57014', message:'canceling statement due to statement timeout'}
+-- so the card never moved out of NEW until a hard refresh.
+--
+-- Root cause (measured on prod as the `authenticated` role):
+--   These views are security_invoker=true. That forces the planner to expand
+--   every underlying-table RLS policy (food_orders, food_order_items, rooms,
+--   stays, stay_guests, profiles, hotel_members ...) into a deeply-nested
+--   subplan tree on EVERY request. Measured: planning ~270-330ms / view,
+--   execution ~20ms. One fetchOrders() runs 3-4 of these (~1.1s of pure
+--   planning) and fires again on each realtime event from the same action
+--   (food_orders UPDATE + assignment INSERT + SLA INSERT) and across every open
+--   dashboard. That planning-CPU storm pushes individual queries past
+--   statement_timeout=8s (57014).
+--
+-- How they regressed (NOT the API-key migration):
+--   * 2026-06-19 (20260619000007) deliberately created these views WITH
+--     (security_invoker = false) AND a final WHERE vaiyu_is_hotel_member(hotel_id)
+--     guard -- definer-rights + self-scoped = fast and tenant-safe.
+--   * 2026-06-20 (20260620000016) ran a blanket loop flipping every
+--     authenticated-readable definer view to security_invoker=true. Its
+--     "leave self-filtering views alone" exclusion was
+--       pg_get_viewdef(...) !~* '(current_guest_id|auth\.uid)'
+--     which does NOT match the vaiyu_is_hotel_member() WRAPPER (its auth.uid()
+--     call lives inside the function, not in the view text). So the loop flipped
+--     these against that migration's own stated intent, re-introducing the cost.
+--   For a logged-in user the role is `authenticated` regardless of whether the
+--   apikey is the legacy anon key or the new sb_publishable_ key, so the
+--   2026-06-26 key migration does not affect this path.
+--
+-- Why dropping security_invoker is SAFE here (proven per-view, not assumed):
+--   (a) anon has NO SELECT on any of these views (verified) -> not exposable to
+--       the public regardless of view rights.
+--   (b) the vaiyu_is_hotel_member(hotel_id) guard sits on the OUTER query of
+--       each (verified), so the caller only ever sees rows for hotels they are
+--       an active member of. vaiyu_is_hotel_member() is SECURITY DEFINER and
+--       reads auth.uid() from the request JWT, so it scopes per-caller even when
+--       the view itself runs with definer rights.
+--   (c) every base table these 5 views read is scoped at HOTEL-MEMBER level in
+--       its own RLS (food_orders/food_order_items/food_order_assignments/
+--       food_order_sla_state/rooms/room_types/hotel_zones/housekeeping_tasks/
+--       checkin_sessions/departments all use `*_staff_all = member of hotel`;
+--       profiles = any hotel staff). So there is NO tighter-than-hotel (per-user
+--       or per-role) RLS restriction for definer rights to bypass: the row set a
+--       member sees is identical under invoker and definer -- only faster.
+--
+-- DELIBERATELY NOT FLIPPED (the other 4 views the same 06-20 sweep also flipped):
+--   ops_daily_counts, ops_ticket_heatmap, v_staff_runner_tickets (read `tickets`/
+--   `ticket_sla_state`) and live_orders_eta_v (reads `sla_targets`). Those base
+--   tables scope PER-STAFF / PER-ROLE (e.g. tickets:
+--   staff_can_see_assigned_and_unassigned_tickets restricts a regular staffer to
+--   their own + unassigned tickets; only supervisors/owners see all). Dropping
+--   security_invoker on them would show a regular staffer the whole hotel's
+--   tickets -- an intra-hotel visibility change that needs a product decision,
+--   not a perf migration. They keep security_invoker=true until that is settled.
+--   v_food_orders_sla_risk likewise stays invoker (it has NO hotel guard at all).
+--
+-- DURABILITY: any future blanket "flip definer views to security_invoker" sweep
+-- MUST treat vaiyu_is_hotel_member(...)-guarded views as self-filtering (same as
+-- the current_guest_id()/auth.uid() exclusion) or it will silently re-break this.
+
+alter view if exists public.v_kitchen_queue                  set (security_invoker = false);
+alter view if exists public.v_my_food_orders                 set (security_invoker = false);
+alter view if exists public.v_runner_queue                   set (security_invoker = false);
+alter view if exists public.v_active_checkins                set (security_invoker = false);
+alter view if exists public.v_housekeeping_operational_board set (security_invoker = false);

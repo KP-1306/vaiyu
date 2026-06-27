@@ -12,6 +12,7 @@
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.48.0";
+import { publishableKey } from "../_shared/keys.ts";
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -41,7 +42,7 @@ serve(async (req: Request) => {
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
+  const supabaseAnonKey = publishableKey();
 
   if (!supabaseUrl || !supabaseAnonKey) {
     console.error("[me-stays] Missing Supabase env vars");
@@ -79,7 +80,7 @@ serve(async (req: Request) => {
   const { data: rows, error: staysError } = await client
     .from("bookings")
     .select(
-      "*, hotel:hotels(id, name, city, country, cover_url)",
+      "*, hotel:hotels(id, name, slug, city, country, cover_url)",
     )
     .eq("guest_id", userId)
     .or("status.is.null,status.in.(claimed,ongoing,completed)")
@@ -123,6 +124,7 @@ serve(async (req: Request) => {
         status: row.status ?? null,
         hotel: {
           name: hotelName,
+          slug: row.hotel?.slug ?? row.slug ?? null,
           city,
           country,
           cover_url: coverUrl,

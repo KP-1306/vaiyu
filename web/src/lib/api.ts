@@ -1033,21 +1033,6 @@ export async function gridStartEvent(target_kw: number, playbook_id?: string) {
 /* ============================================================================
    Self-claim
 ============================================================================ */
-export async function claimInit(code: string, contact: string) {
-  const path = IS_SUPABASE_FUNCTIONS ? "/claim-init" : "/claim/init";
-  return req(path, {
-    method: "POST",
-    body: JSON.stringify({ code, phone: contact }),
-  });
-}
-
-export async function claimVerify(code: string, otp: string) {
-  const path = IS_SUPABASE_FUNCTIONS ? "/claim-verify" : "/claim/verify";
-  return req(path, {
-    method: "POST",
-    body: JSON.stringify({ code, otp }),
-  });
-}
 
 export async function gridStepEvent(
   id: string,
@@ -1256,7 +1241,7 @@ export async function myStays(
   token?: string
 ): Promise<{ stays: Stay[]; items: Stay[] }> {
   const headers = await getAuthHeaders(token);
-  const res = await req<any>("/me/stays", { headers });
+  const res = await req<any>("/me-stays", { headers });
 
   const raw =
     res?.stays ??
@@ -1280,15 +1265,6 @@ export async function getStayByCode(code: string, token?: string): Promise<Stay 
   return stays.find((s) => String(s.code).toUpperCase() === safe) ?? null;
 }
 
-/** Convenience helpers (UI-safe, no breaking changes) */
-export async function isStayCompleted(code: string, token?: string): Promise<boolean> {
-  const stay = await getStayByCode(code, token);
-  return stay?.status === "completed";
-}
-export async function isStayActive(code: string, token?: string): Promise<boolean> {
-  const stay = await getStayByCode(code, token);
-  return stay?.status === "active";
-}
 
 /**
  * Resolve property slug for a booking.
@@ -2235,25 +2211,6 @@ export async function updateOrder(id: string, patch: Json) {
 /* ============================================================================
    Guest Profile (Owner unified view)
 ============================================================================ */
-export async function fetchGuestProfile(params: {
-  hotelId?: string;
-  guestId?: string;
-  bookingCode?: string;
-  phone?: string;
-  email?: string;
-}) {
-  const search = new URLSearchParams();
-  if (params.hotelId) search.set("hotelId", params.hotelId);
-  if (params.guestId) search.set("guestId", params.guestId);
-  if (params.bookingCode) search.set("bookingCode", params.bookingCode);
-  if (params.phone) search.set("phone", params.phone);
-  if (params.email) search.set("email", params.email);
-
-  const qs = search.toString();
-  const path = `/guest-profile${qs ? `?${qs}` : ""}`;
-
-  return req<GuestProfilePayload>(path);
-}
 
 /* ============================================================================
    Guest Identity
@@ -2618,14 +2575,10 @@ export const api = {
   req,
   isDemo,
 
-  // self-claim + session
-  claimInit,
-  claimVerify,
+  // session
   myStays,
   getStayByCode,
   getPropertySlugForBooking,
-  isStayCompleted,
-  isStayActive,
 
   // referrals & credits
   referralInit,
@@ -2666,7 +2619,6 @@ export const api = {
   fetchHotelOrders,
 
   // guest profile + identity
-  fetchGuestProfile,
   fetchGuestIdentity,
   upsertGuestIdentity,
 

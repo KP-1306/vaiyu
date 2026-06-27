@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 export default function UpdatePrompt() {
+  const { t } = useTranslation("common");
   const [waiting, setWaiting] = useState<ServiceWorker | null>(null);
 
   useEffect(() => {
@@ -30,16 +32,16 @@ export default function UpdatePrompt() {
 
   return (
     <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 rounded-xl border px-4 py-3 bg-white shadow">
-      <div className="text-sm">A new version is available.</div>
+      <div className="text-sm">{t("chrome.updateAvailable", "A new version is available.")}</div>
       <div className="mt-2 flex gap-2">
         <button
           className="btn"
           onClick={() => waiting.postMessage({ type: 'SKIP_WAITING' })}
         >
-          Update now
+          {t("chrome.updateNow", "Update now")}
         </button>
         <button className="btn btn-light" onClick={() => setWaiting(null)}>
-          Later
+          {t("chrome.updateLater", "Later")}
         </button>
       </div>
     </div>

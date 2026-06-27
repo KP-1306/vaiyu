@@ -25,5 +25,13 @@
     "kitchenOrders": "Kitchen Orders",
     "profileSettings": "Profile & settings",
     "signOut": "Sign out"
+  },
+  "chrome": {
+    "skipToContent": "Skip to content",
+    "offline": "You're offline. Changes may not sync.",
+    "backHome": "Back home",
+    "updateAvailable": "A new version is available.",
+    "updateNow": "Update now",
+    "updateLater": "Later"
   }
 }

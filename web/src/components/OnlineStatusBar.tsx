@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 export default function OnlineStatusBar() {
+  const { t } = useTranslation("common");
   const [online, setOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
 
   useEffect(() => {
@@ -18,7 +20,7 @@ export default function OnlineStatusBar() {
 
   return (
     <div className="fixed top-0 left-0 right-0 z-[1000] bg-amber-500 text-white text-center py-2">
-      You’re offline. Changes may not sync.
+      {t("chrome.offline", "You're offline. Changes may not sync.")}
     </div>
   );
 }

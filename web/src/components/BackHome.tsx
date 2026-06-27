@@ -22,6 +22,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { supabase } from "../lib/supabase";
 
 /** Surfaces where the pill is relevant (matches exact or as prefix/) */
@@ -57,10 +58,13 @@ type Props = {
 
 export default function BackHome({
   to,
-  label = "← Back home",
+  label,
   className = "",
 }: Props) {
   const { pathname, search } = useLocation();
+  const { t } = useTranslation("common");
+  // Caller-supplied label wins; otherwise a translated default ("← Back home").
+  const content = label ?? `← ${t("chrome.backHome", "Back home")}`;
 
   // If caller passes `to`, we always respect it.
   const forcedTo = to ?? null;
@@ -237,9 +241,9 @@ export default function BackHome({
             ? "bg-[#1a1816]/70 border-[#d4af37]/20 text-[#b8b3a8] hover:bg-[#d4af37] hover:text-[#0a0a0c] hover:shadow-[0_0_15px_rgba(212,175,55,0.3)]"
             : "bg-white/80 border-slate-200 text-slate-700 hover:bg-white hover:text-slate-900 hover:shadow-md"
         } ${className}`}
-        aria-label={label}
+        aria-label={content}
       >
-        {label}
+        {content}
       </NavLink>
     </div>
   );

@@ -25,5 +25,13 @@
     "kitchenOrders": "किचन ऑर्डर",
     "profileSettings": "प्रोफ़ाइल और सेटिंग्स",
     "signOut": "साइन आउट"
+  },
+  "chrome": {
+    "skipToContent": "मुख्य सामग्री पर जाएँ",
+    "offline": "आप ऑफ़लाइन हैं। बदलाव सिंक नहीं हो सकते।",
+    "backHome": "होम पर वापस",
+    "updateAvailable": "नया वर्शन उपलब्ध है।",
+    "updateNow": "अभी अपडेट करें",
+    "updateLater": "बाद में"
   }
 }

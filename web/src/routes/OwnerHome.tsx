@@ -6,7 +6,6 @@ import { API } from "../lib/api";
 import { useRole } from "../context/RoleContext";
 import OwnerDigestCard from "../components/OwnerDigestCard";
 import { OwnerLangToggle } from "../i18n/OwnerLangToggle";
-import UsageMeter from "../components/UsageMeter";
 import ObservabilityCard from "../components/ObservabilityCard";
 import { useOwnerT } from "../i18n/useOwnerT";
 
@@ -193,7 +192,6 @@ export default function OwnerHome() {
               apiBase={API}
               className="mb-2"
             />
-            <UsageMeter />
           </section>
 
           {/* KPI glance */}

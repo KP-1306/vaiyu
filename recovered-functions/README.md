@@ -1,49 +1,32 @@
 # recovered-functions/
 
-Source for 14 Supabase Edge Functions that are **deployed on prod** (vaiyu-prod,
-`vsqiuwbmawygkxxjrxnt`) but were **never in git** — recovered 2026-06-27 via
-`supabase functions download --use-api`. They were deployed Nov–Dec 2025 and never
-redeployed.
+Source recovered 2026-06-27 (via `supabase functions download`) for prod edge functions that
+were deployed but **never in git** (Nov–Dec 2025 orphans). Most have since been resolved; this dir
+now holds only the **4 healthy keepers** pending a key-migration + promotion into `supabase/functions/`.
 
-## Why this dir is NOT under `supabase/functions/`
-`.github/workflows/deploy-functions.yml` globs `supabase/functions/*` and deploys
-**every** function with **`--no-verify-jwt`**. These recovered functions have not been
-vetted for that posture, so they live here (outside the glob) to capture the source
-under version control **without triggering a redeploy**. Do **not** move one into
-`supabase/functions/` until it's reviewed (see below).
+## Pending here — keep + migrate (4)
+Healthy + actively used. They still read the legacy-named `SUPABASE_ANON_KEY` /
+`SUPABASE_SERVICE_ROLE_KEY` env vars (prod still resolves those to valid keys, so they work).
+Migrate to the new-key helpers (`publishableKey()`/`secretKey()`) + promote into
+`supabase/functions/` when touching the feature / before prod:
 
-## Status at recovery — healthy, not broken
-All 14 are live on prod. They read the platform-injected `SUPABASE_ANON_KEY` /
-`SUPABASE_SERVICE_ROLE_KEY` env vars, which **still resolve to valid keys** after the
-legacy-key disable + JWT-secret revoke (verified: `workforce-jobs` returns real data).
-So the revoke did **not** break them, and the originally-leaked key string remains dead.
+- `catalog_menu2` — guest menu (public; intentionally low-auth)
+- `me-stays` — guest dashboard stays (guest auth)
+- `workforce-jobs` — careers job list
+- `workforce-profile` — careers / owner workforce
 
-## Usage map (which app surface calls each)
-- **Owner console (active):** `ai` (UsageMeter on OwnerSettings/OwnerHome).
-  > `ops-heatmap` + `staffing-plan` were **RETIRED** 2026-06-27 — rotted by schema/RPC drift
-  > (prod `ops_ticket_heatmap` no longer has `hour_bucket`; `staffing_plan_for_day` errors), so they
-  > 500'd on every call and the owner-dashboard widgets had been empty for months (never leaked —
-  > query died before returning data). Prod fns deleted + dashboard wiring + lib/api fns/types removed.
-- **Guest portal (old architecture, via lib/api.ts + VITE_API_URL=functions-base):**
-  `me`, `me-stays`, `guest-identity`, `guest-identity-upsert`, `guest-profile`,
-  `hotel-orders`, `catalog_menu2`.
-- **Careers:** `workforce-jobs`, `workforce-profile`.
-- **Claim-stay (dormant — `/claim` route mounted but no nav link):** `claim-init`, `claim-verify`.
+Before promoting: the deploy CI runs `--no-verify-jwt`, so confirm in-code auth first
+(`me-stays`/`workforce-*` have it; `catalog_menu2` is intentionally public).
 
-## Before promoting any of these into `supabase/functions/` (the eventual fix)
-1. **Confirm it does its own in-code auth** (`getUser` / `auth.uid`). The deploy CI uses
-   `--no-verify-jwt`, so a function that relies on the gateway becomes an **open endpoint**
-   if promoted as-is.
-   - Has in-code auth signals: `guest-identity`, `guest-identity-upsert`, `me`, `me-stays`,
-     `guest-profile`, `claim-init`, `claim-verify`, `workforce-jobs`, `workforce-profile`, `ai`.
-   - **Zero auth signals:** `catalog_menu2` (public menu — intentionally open, low sensitivity).
-     (`hotel-orders` was here too — now **PROMOTED + secured** 2026-06-27, assertAuthed +
-     `vaiyu_is_hotel_member`, unused open POST dropped. `ops-heatmap` + `staffing-plan` were
-     **RETIRED** 2026-06-27 — rotted, deleted entirely.)
-2. Swap the legacy env reads → the new-key helpers (`publishableKey()` / `secretKey()` in
-   `supabase/functions/_shared/keys.ts`) for consistency.
-3. Add `config.toml` `verify_jwt` entries as needed.
+## Resolved (no longer here)
+- **Fixed + secured + promoted:** `hotel-orders` — was the one genuinely exploitable cross-tenant
+  leak (orders query worked) → now assertAuthed + `vaiyu_is_hotel_member` + new key, unused POST dropped.
+- **Retired (deleted from prod):** `ops-heatmap`, `staffing-plan`, `ai`, `me`, `guest-identity`,
+  `guest-identity-upsert`, `guest-profile`, `claim-init`, `claim-verify`. All rotted (queried tables/
+  columns that were dropped — `ops_ticket_heatmap.hour_bucket`, `ai_usage_daily`, `guest_identity`,
+  `credit_balances`) or dormant (claim, hidden route). They'd 500'd for months and never leaked
+  (the query died before returning data). UI removed: ops/staffing dashboard widgets, `ai` UsageMeter,
+  `claim` route + component. A few dead `lib/api` exports remain (`claimInit`/`claimVerify`, `me`/
+  `guest-*` fns + demo handlers) — graceful 404s, sweep when convenient.
 
-Alternatively, **retire** the dormant/superseded ones (delete the function + its UI wiring)
-rather than promoting them — e.g. claim-stay (deferred), or any guest-portal endpoint a
-newer path replaces.
+Full migration history: `docs/supabase-api-key-migration.md`.

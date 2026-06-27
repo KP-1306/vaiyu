@@ -13,7 +13,6 @@ import { useOwnerT, useOwnerLocale, useOwnerCommonT, localizeCode } from "../i18
 import { OwnerLangToggle } from "../i18n/OwnerLangToggle";
 
 import { useTicketsRealtime } from "../hooks/useTicketsRealtime";
-import UsageMeter from "../components/UsageMeter";
 import ObservabilityCard from "../components/ObservabilityCard";
 import {
   Users,

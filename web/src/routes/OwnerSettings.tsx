@@ -7,7 +7,6 @@ import { useParams, Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import OwnerGate from "../components/OwnerGate";
 import SEO from "../components/SEO";
-import UsageMeter from "../components/UsageMeter";
 import RazorpayPanel from "../components/owner/RazorpayPanel";
 import WhatsAppPanel from "../components/owner/WhatsAppPanel";
 import InteraktPanel from "../components/owner/InteraktPanel";
@@ -383,7 +382,6 @@ export default function OwnerSettings() {
               </div>
               <div className="flex items-center gap-3">
                 <OwnerLangToggle />
-                {hotel?.id && <UsageMeter hotelId={hotel.id} />}
                 <div className="flex gap-2">
                   <input
                     className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 w-32"

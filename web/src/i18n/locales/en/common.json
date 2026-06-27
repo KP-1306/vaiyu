@@ -14,5 +14,16 @@
   },
   "state": { "loading": "Loading…" },
   "terms": { "guest": "Guest", "hotel": "Hotel" },
-  "nav": { "home": "Home", "trips": "Trips", "support": "Support" }
+  "nav": { "home": "Home", "trips": "Trips", "support": "Support" },
+  "accountMenu": {
+    "signIn": "Sign in",
+    "ariaLabel": "Account menu",
+    "myTrips": "My trips",
+    "opsWorkspace": "Operations & Workspace",
+    "ownerDashboard": "Owner Dashboard",
+    "staffTasks": "Staff Tasks",
+    "kitchenOrders": "Kitchen Orders",
+    "profileSettings": "Profile & settings",
+    "signOut": "Sign out"
+  }
 }

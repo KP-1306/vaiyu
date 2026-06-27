@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { supabase } from "../lib/supabase";
 import {
   getMyMemberships,
@@ -39,6 +40,7 @@ export default function AccountControls({
   theme?: "light" | "dark";
 }) {
   const nav = useNavigate();
+  const { t } = useTranslation("common");
 
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState<string | null>(null);
@@ -100,7 +102,7 @@ export default function AccountControls({
       <Link
         to="/signin?intent=signin&redirect=/guest" className={`rounded-full bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 ${className}`}
       >
-        Sign in
+        {t("accountMenu.signIn", "Sign in")}
       </Link>
     );
   }
@@ -112,7 +114,7 @@ export default function AccountControls({
         className={`flex items-center justify-center rounded-full outline-none focus:ring ${buttonClassName}`}
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label="Account menu"
+        aria-label={t("accountMenu.ariaLabel", "Account menu")}
       >
         {initials}
       </button>
@@ -140,7 +142,7 @@ export default function AccountControls({
           <div className="py-1">
             <MenuLink
               to="/guest/trips"
-              label="My trips"
+              label={t("accountMenu.myTrips", "My trips")}
               theme={theme}
               onChoose={() => setOpen(false)}
             />
@@ -150,13 +152,13 @@ export default function AccountControls({
             <>
               <div className={`h-px ${theme === "dark" ? "bg-white/10" : "bg-slate-200"}`} />
               <div className={`px-4 pt-3 pb-1 text-[10px] font-bold uppercase tracking-wider ${theme === "dark" ? "text-white/40" : "text-slate-400"}`}>
-                Operations & Workspace
+                {t("accountMenu.opsWorkspace", "Operations & Workspace")}
               </div>
               <div className="py-1 flex flex-col">
                 {(memberships || []).some(m => m.role !== "viewer" && m.role !== "staff") && (
                   <MenuLink
                     to="/owner"
-                    label="Owner Dashboard"
+                    label={t("accountMenu.ownerDashboard", "Owner Dashboard")}
                     theme={theme}
                     onChoose={() => setOpen(false)}
                   />
@@ -164,14 +166,14 @@ export default function AccountControls({
 
                 <MenuLink
                   to="/staff"
-                  label="Staff Tasks"
+                  label={t("accountMenu.staffTasks", "Staff Tasks")}
                   theme={theme}
                   onChoose={() => setOpen(false)}
                 />
-                
+
                 <MenuLink
                   to="/kitchen"
-                  label="Kitchen Orders"
+                  label={t("accountMenu.kitchenOrders", "Kitchen Orders")}
                   theme={theme}
                   onChoose={() => setOpen(false)}
                 />
@@ -185,7 +187,7 @@ export default function AccountControls({
           <div className="py-1">
             <MenuLink
               to="/profile"
-              label="Profile & settings"
+              label={t("accountMenu.profileSettings", "Profile & settings")}
               theme={theme}
               onChoose={() => setOpen(false)}
             />
@@ -212,7 +214,7 @@ export default function AccountControls({
                 : "text-red-600 hover:bg-red-50"
               }`}
           >
-            Sign out
+            {t("accountMenu.signOut", "Sign out")}
           </button>
         </div>
       )}

@@ -14,5 +14,16 @@
   },
   "state": { "loading": "लोड हो रहा है…" },
   "terms": { "guest": "अतिथि", "hotel": "होटल" },
-  "nav": { "home": "होम", "trips": "यात्राएँ", "support": "सहायता" }
+  "nav": { "home": "होम", "trips": "यात्राएँ", "support": "सहायता" },
+  "accountMenu": {
+    "signIn": "साइन इन",
+    "ariaLabel": "अकाउंट मेन्यू",
+    "myTrips": "मेरी यात्राएँ",
+    "opsWorkspace": "ऑपरेशन्स और वर्कस्पेस",
+    "ownerDashboard": "ओनर डैशबोर्ड",
+    "staffTasks": "स्टाफ टास्क",
+    "kitchenOrders": "किचन ऑर्डर",
+    "profileSettings": "प्रोफ़ाइल और सेटिंग्स",
+    "signOut": "साइन आउट"
+  }
 }

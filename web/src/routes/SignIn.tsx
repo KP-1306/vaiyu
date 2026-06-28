@@ -5,7 +5,7 @@ import { supabase } from "../lib/supabase";
 import {
   buildEmailRedirectUrl,
   consumeAuthFromUrl,
-  getCurrentSession,
+  getSessionWithTimeout,
 } from "../lib/auth";
 
 function maskEmail(e: string) {
@@ -43,8 +43,9 @@ export default function SignIn() {
       try {
         // 1) Consume tokens/code if present (magic link / OAuth PKCE)
         const consumed = await consumeAuthFromUrl();
-        // 2) If we have a session now, go to redirect
-        const sess = await getCurrentSession();
+        // 2) If we have a session now, go to redirect. Time-bounded so a hung
+        //    getSession() can't freeze "Checking session…" forever.
+        const sess = await getSessionWithTimeout();
         if (!cancelled && sess) {
           navigate(redirect, { replace: true });
           return;

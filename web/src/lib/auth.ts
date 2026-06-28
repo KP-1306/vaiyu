@@ -39,6 +39,25 @@ export async function getCurrentSession() {
   }
 }
 
+/**
+ * Time-bounded session read. supabase-js getSession() can hang indefinitely
+ * (auth-lock contention / a stalled token refresh), which would freeze any
+ * "Checking session…" gate forever. Resolve to null on timeout so callers fall
+ * through to the sign-in screen instead of spinning. Quick when it works
+ * (a valid session reads from storage in a few ms); bounded when it doesn't.
+ */
+export async function getSessionWithTimeout(timeoutMs = 4000) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<null>((resolve) => {
+    timer = setTimeout(() => resolve(null), timeoutMs);
+  });
+  try {
+    return await Promise.race([getCurrentSession(), timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 /** ---------- Memberships (Owner/Manager/Staff) ---------- */
 
 /**

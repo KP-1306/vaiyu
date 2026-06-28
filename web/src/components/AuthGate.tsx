@@ -3,7 +3,7 @@ import { ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "../lib/supabase";
-import { getSessionWithTimeout } from "../lib/auth";
+import { getCurrentSession } from "../lib/auth";
 
 type Props = { children: ReactNode; allow?: string[] };
 
@@ -39,10 +39,11 @@ export default function AuthGate({ children, allow = ["owner", "staff", "viewer"
 function useSessionQuery() {
   return useQuery({
     queryKey: ["session"],
-    // Time-bounded: a hung getSession() resolves to null instead of leaving the
-    // gate stuck on its loading state forever (then redirects to /signin).
+    // getSession() is bounded at the client (lib/supabase.ts), so this query
+    // always settles — a hung read resolves to null and the gate redirects to
+    // /signin instead of leaving its loading state stuck forever.
     queryFn: async () => {
-      return await getSessionWithTimeout();
+      return await getCurrentSession();
     },
     retry: false,
     refetchOnWindowFocus: false,

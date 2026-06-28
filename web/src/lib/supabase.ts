@@ -29,23 +29,32 @@ export const supabase = createClient(url, SUPABASE_PUBLISHABLE_KEY, {
 });
 
 // ── Bound getSession() globally so the app can never hang on it ──────────────
-// supabase-js getSession() can stall indefinitely on auth-lock contention or a
-// stalled token refresh. ~36 call sites await it to gate "Loading…/Checking
-// session" UIs, so a single stall freezes that screen forever. Wrap the public
-// method once here: if it hasn't resolved in SESSION_TIMEOUT_MS, report "no
-// session" so callers fall through to sign-in instead of spinning. A valid
-// session reads from storage in a few ms, so the timeout only ever fires on the
-// pathological hang. (Documented at the client so it's discoverable, not hidden.)
+// supabase-js getSession() can stall indefinitely (auth-lock contention / a
+// stalled token refresh). Every getSession call in the app runs on THIS shared
+// client, and ~36 of them gate "Loading…/Checking session" UIs — so one stall
+// freezes that screen forever. We bound the read in exactly one place here
+// rather than editing 36 call sites (which would also leave the next new call
+// site unprotected). If it hasn't resolved within SESSION_TIMEOUT_MS, resolve to
+// "no session" so callers fall through to sign-in instead of spinning; a valid
+// session reads from storage in a few ms, so the timeout only fires on the hang.
+//
+// Safe vs. the library internals (verified against @supabase/auth-js 2.x): the
+// token refresh/recovery path uses _useSession()/__loadSession(), NOT the public
+// getSession(). The only internal callers of the public method are getClaims()
+// and the MFA assurance-level check — neither used here — so this cannot corrupt
+// session refresh. Returning null on timeout is BY DESIGN, not a bug.
 const SESSION_TIMEOUT_MS = 4000;
 const _origGetSession = supabase.auth.getSession.bind(supabase.auth);
 supabase.auth.getSession = ((...args: Parameters<typeof _origGetSession>) => {
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise((resolve) => {
-    timer = setTimeout(
-      () => resolve({ data: { session: null }, error: null }),
-      SESSION_TIMEOUT_MS,
-    );
-  });
+  const timeout = new Promise<Awaited<ReturnType<typeof _origGetSession>>>(
+    (resolve) => {
+      timer = setTimeout(
+        () => resolve({ data: { session: null }, error: null }),
+        SESSION_TIMEOUT_MS,
+      );
+    },
+  );
   return Promise.race([_origGetSession(...args), timeout]).finally(() => {
     if (timer) clearTimeout(timer);
   });

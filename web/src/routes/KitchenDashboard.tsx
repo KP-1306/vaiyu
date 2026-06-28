@@ -62,6 +62,22 @@ const playNotificationSound = () => {
     }
 };
 
+// ── SLA Risk Alerts thresholds (minutes) ──────────────────────────────────
+// The SLA target itself is already per-hotel (baked into sla_target_at via
+// sla_policies.target_minutes); these only control how early an order surfaces
+// as a risk. Fixed leads (not %-of-window) so the rule stays predictable for
+// staff. Revisit only if a hotel asks for per-property tuning.
+const AT_RISK_LEAD_MIN = 10; // an accepted order this close to its deadline → warn
+const ACCEPT_SLA_MIN = 5;    // a CREATED order older than this → nobody's acting on it
+
+type RiskTier = 'BREACHED' | 'AT_RISK' | 'UNACCEPTED';
+interface SlaRisk {
+    order: FoodOrder;
+    tier: RiskTier;
+    // BREACHED: minutes overdue · AT_RISK: minutes remaining · UNACCEPTED: minutes since created
+    minutes: number;
+}
+
 export default function KitchenDashboard() {
     // Stop alarm on any interaction
     const [orders, setOrders] = useState<FoodOrder[]>([]);
@@ -270,12 +286,40 @@ export default function KitchenDashboard() {
     const kitchenQueue = orders.filter((o: FoodOrder) => ['CREATED', 'ACCEPTED', 'PREPARING'].includes(o.status));
     const runnerQueue = orders.filter((o: FoodOrder) => ['READY', 'DELIVERED'].includes(o.status));
 
-    // SLA Risks: Created long ago or SLA breach?
-    const slaRisks = orders.filter((o: FoodOrder) => {
-        if (['DELIVERED', 'CANCELLED'].includes(o.status)) return false;
-        if (!o.sla?.sla_target_at) return false;
-        return true;
-    }).sort((a: FoodOrder, b: FoodOrder) => new Date(a.sla!.sla_target_at).getTime() - new Date(b.sla!.sla_target_at).getTime());
+    // SLA Risk Alerts: only orders that need intervention now — never the full list.
+    //   BREACHED   — accepted, deadline already passed
+    //   AT_RISK    — accepted, within AT_RISK_LEAD_MIN of the deadline (still time to act)
+    //   UNACCEPTED — still CREATED after ACCEPT_SLA_MIN (SLA hasn't even started; nobody
+    //                is acting on it — the highest-risk case, and invisible before this)
+    // On-track orders are intentionally hidden so this stays a high-signal alert list.
+    const nowMs = Date.now();
+    const slaRisks: SlaRisk[] = orders.flatMap((o: FoodOrder): SlaRisk[] => {
+        if (['DELIVERED', 'CANCELLED'].includes(o.status)) return [];
+
+        // Accepted / in-flight: judge against the SLA deadline.
+        if (o.sla?.sla_target_at) {
+            const target = parseDbDate(o.sla.sla_target_at)?.getTime();
+            if (target == null) return [];
+            const remaining = Math.floor((target - nowMs) / 60000);
+            if (remaining < 0) return [{ order: o, tier: 'BREACHED', minutes: -remaining }];
+            if (remaining <= AT_RISK_LEAD_MIN) return [{ order: o, tier: 'AT_RISK', minutes: remaining }];
+            return []; // on track — hidden
+        }
+
+        // Not yet accepted (no SLA row): flag once it has been sitting too long.
+        if (o.status === 'CREATED') {
+            const created = parseDbDate(o.created_at)?.getTime();
+            if (created == null) return [];
+            const age = Math.floor((nowMs - created) / 60000);
+            if (age >= ACCEPT_SLA_MIN) return [{ order: o, tier: 'UNACCEPTED', minutes: age }];
+        }
+        return [];
+    }).sort((a: SlaRisk, b: SlaRisk) => {
+        const rank: Record<RiskTier, number> = { BREACHED: 0, AT_RISK: 1, UNACCEPTED: 2 };
+        if (rank[a.tier] !== rank[b.tier]) return rank[a.tier] - rank[b.tier];
+        if (a.tier === 'AT_RISK') return a.minutes - b.minutes; // soonest to breach first
+        return b.minutes - a.minutes;                           // most overdue / oldest first
+    });
 
     const myOrders = orders
         .filter((o: FoodOrder) => {
@@ -555,22 +599,19 @@ export default function KitchenDashboard() {
                     <div className="bg-[#1a1a1a] rounded-xl overflow-hidden border border-white/10">
                         <div className="bg-red-600 px-4 py-3 font-bold text-white tracking-wide">SLA Risk Alerts</div>
                         <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-                            {slaRisks.map(order => {
-                                const target = parseDbDate(order.sla!.sla_target_at);
-                                if (!target) return null;
-                                const now = new Date();
-                                const diffMins = Math.floor((target.getTime() - now.getTime()) / 60000);
-                                const isBreached = diffMins < 0;
-
+                            {slaRisks.map(({ order, tier, minutes }) => {
+                                const label = tier === 'BREACHED' ? `Breached by ${minutes} min`
+                                    : tier === 'AT_RISK' ? `Breach in ${minutes} min`
+                                    : `Unaccepted ${minutes} min`;
+                                const textClass = tier === 'AT_RISK' ? 'text-orange-500' : 'text-red-600';
+                                const borderClass = tier === 'AT_RISK' ? 'border-orange-400' : 'border-red-500';
                                 return (
-                                    <div key={order.id} className="bg-white rounded-lg p-3 text-slate-900 border-l-4 border-red-500 shadow-sm">
+                                    <div key={order.id} className={`bg-white rounded-lg p-3 text-slate-900 border-l-4 ${borderClass} shadow-sm`}>
                                         <div className="flex justify-between items-start mb-2">
                                             <div className="font-bold text-slate-800">{order.display_id || `#${order.id.slice(0, 4)}`}</div>
                                         </div>
                                         <div className="text-xs font-bold uppercase tracking-wider mb-1 text-slate-500">Status: {order.status}</div>
-                                        <div className={`text-xs font-bold ${isBreached ? 'text-red-600' : 'text-orange-500'}`}>
-                                            {isBreached ? `Breached by ${Math.abs(diffMins)} min` : `Breach in ${diffMins} min`}
-                                        </div>
+                                        <div className={`text-xs font-bold ${textClass}`}>{label}</div>
                                     </div>
                                 );
                             })}

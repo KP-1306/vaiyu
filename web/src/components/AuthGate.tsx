@@ -8,8 +8,23 @@ type Props = { children: ReactNode; allow?: string[] };
 
 export default function AuthGate({ children, allow = ["owner", "staff", "viewer", "OWNER", "STAFF", "MANAGER"] }: Props) {
   const loc = useLocation();
-  const { data: session } = useSessionQuery();
+  const { data: session, isPending } = useSessionQuery();
   const { data: role } = useRoleQuery(session?.user?.id);
+
+  // While the session query is still resolving, `session` is `undefined`.
+  // Treating that as "logged out" bounced authenticated users to /signin on
+  // every hard-refresh / direct-nav to a gated route (the "Checking session"
+  // detour). Hold with a lightweight spinner until the query actually settles.
+  if (isPending) {
+    return (
+      <div className="min-h-screen grid place-items-center bg-gray-50">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-sky-600" />
+          <div className="text-sm text-gray-500">Loading…</div>
+        </div>
+      </div>
+    );
+  }
 
   if (!session) return <Navigate to={`/signin?redirect=${encodeURIComponent(loc.pathname + loc.search)}`} replace />;
 

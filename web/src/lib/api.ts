@@ -2737,9 +2737,12 @@ export async function listRooms(hotelId: string): Promise<Room[]> {
   // If we are using Edge Functions for everything, use the /rooms endpoint
   if (IS_SUPABASE_FUNCTIONS) {
     try {
-      // console.log("[listRooms] fetching from Edge Function...");
-      const res = await req<{ items: Room[] }>(`/rooms?hotelId=${hotelId}`);
-      // console.log("[listRooms] Edge Function response:", res);
+      // Forward the user's session JWT so the rooms function reads `rooms`
+      // AS the member (rooms RLS is members-only). Without this it ran as anon
+      // and returned 0 rows -> empty ROOM STATUS grid on /ops.
+      const res = await req<{ items: Room[] }>(`/rooms?hotelId=${hotelId}`, {
+        headers: await getAuthHeaders(),
+      });
       return res.items || [];
     } catch (e) {
       console.warn("Failed to fetch rooms from API, falling back to direct/demo", e);

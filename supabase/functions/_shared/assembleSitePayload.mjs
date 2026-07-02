@@ -28,7 +28,7 @@ export async function assembleSitePayload(supabase, hotelId, opts = {}) {
   const pub = (path) => supabase.storage.from(PUB_BUCKET).getPublicUrl(path).data.publicUrl;
 
   const [hotelRes, siteRes, roomsRes, priceRes, revRes, fileRes] = await Promise.all([
-    supabase.from('hotels').select('id,slug,name,city,state,country,address,phone,email,brand_color,latitude,longitude,postal_code,booking_url,description,amenities').eq('id', hotelId).maybeSingle(),
+    supabase.from('hotels').select('id,slug,name,city,state,country,address,phone,email,brand_color,latitude,longitude,postal_code,booking_url,description,amenities,cover_image_path,logo_path').eq('id', hotelId).maybeSingle(),
     supabase.from('hotel_sites').select('*').eq('hotel_id', hotelId).maybeSingle(),
     supabase.from('room_types').select('id,name,description,max_occupancy').eq('hotel_id', hotelId).eq('is_active', true),
     supabase.from('rate_plan_prices').select('room_type_id,price').eq('hotel_id', hotelId),
@@ -48,7 +48,9 @@ export async function assembleSitePayload(supabase, hotelId, opts = {}) {
     .map((f) => ({ id: f.id, url: pub(f.storage_path), alt: f.alt_text || '' }));
   const coverPics = inGroup('cover'), roomPics = inGroup('rooms'), diningPics = inGroup('dining'), commonPics = inGroup('common'), expPics = inGroup('experience');
 
-  // hero: explicit pick, else first cover, else any room/common photo
+  // hero: explicit pick, else first cover/room/common photo, else the cover set in
+  // Hotel Settings. hotels.cover_image_path is stored as a full public URL, so the
+  // settings cover reaches the site even when no DAM gallery photo has been uploaded.
   let hero = null;
   if (site.hero_asset_file_id) {
     const hf = files.find((f) => f.id === site.hero_asset_file_id);
@@ -57,6 +59,7 @@ export async function assembleSitePayload(supabase, hotelId, opts = {}) {
   if (!hero) {
     const first = coverPics[0] || roomPics[0] || commonPics[0] || null;
     if (first) hero = { imageUrl: first.url, alt: first.alt || hotel.name };
+    else if (hotel.cover_image_path) hero = { imageUrl: hotel.cover_image_path, alt: hotel.name };
   }
   // og image pick
   let ogImage = hero?.imageUrl || null;

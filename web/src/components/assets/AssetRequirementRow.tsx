@@ -217,14 +217,18 @@ export function AssetRequirementRow({ row, showHinglish }: Props) {
           </div>
         </div>
 
-        {/* Inline upload for single-file requirements with no files yet */}
-        {!row.allow_multiple_files && fileCount === 0 && !isLinkedBrand && (
+        {/* Inline upload to add the FIRST file. Single-file rows always use it; a
+            multi-file row uses it until a record exists — after the first file the
+            "Manage / Add files" gallery drawer above takes over. Without this, a
+            fresh multi-file requirement (room / dining / view photos) had no way to
+            add its first file (the drawer button needs an existing hotel_asset_id). */}
+        {fileCount === 0 && !isLinkedBrand && (!row.allow_multiple_files || !row.hotel_asset_id) && (
           <div className="mt-3">
             <AssetUploadSlot
               hotelId={row.hotel_id}
               requirementCode={row.requirement_code}
               zone={row.storage_zone}
-              allowMultiple={false}
+              allowMultiple={row.allow_multiple_files}
               compact
             />
           </div>

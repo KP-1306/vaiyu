@@ -169,6 +169,7 @@ const OwnerPackages = lazy(() => import("./routes/owner/Packages"));
 const OwnerPackageBuilder = lazy(() => import("./routes/owner/PackageBuilder"));
 const OwnerLocalSeoPlanner = lazy(() => import("./routes/owner/LocalSeoPlanner"));
 const OwnerAssets = lazy(() => import("./routes/owner/Assets"));
+const SiteEditor = lazy(() => import("./routes/owner/SiteEditor"));
 const OwnerSeasonalCalendar = lazy(() => import("./routes/owner/SeasonalCalendar"));
 const OwnerOTAOptimizer = lazy(() => import("./routes/owner/OTAOptimizer"));
 const OwnerVisibility = lazy(() => import("./routes/owner/Visibility"));
@@ -637,6 +638,14 @@ const router = createBrowserRouter([
         ),
       },
       {
+        path: "owner/:slug/website",
+        element: (
+          <AuthGate>
+            <SiteEditor />
+          </AuthGate>
+        ),
+      },
+      {
         path: "owner/:slug/packages",
         element: (
           <AuthGate>
@@ -1034,6 +1043,17 @@ const router = createBrowserRouter([
           <AuthGate>
             <PlatformAdminGate>
               <PlatformConsole />
+            </PlatformAdminGate>
+          </AuthGate>
+        ),
+      },
+      // VAiyu-seed site editor for any hotel — platform_admins only
+      {
+        path: "admin/platform/hotels/:slug/site",
+        element: (
+          <AuthGate>
+            <PlatformAdminGate>
+              <SiteEditor platform />
             </PlatformAdminGate>
           </AuthGate>
         ),

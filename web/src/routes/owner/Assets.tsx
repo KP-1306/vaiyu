@@ -1,7 +1,7 @@
 // web/src/routes/owner/Assets.tsx
 //
 // Digital Asset Manager workspace — Position 6 of the growth sheet.
-// Light theme, mobile-first, owner-facing.
+// Dark theme, mobile-first, owner-facing.
 
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -86,28 +86,34 @@ export default function Assets() {
 
   if (!DIGITAL_ASSET_MANAGER_V0_ENABLED) {
     return (
-      <main className="vaiyu-owner mx-auto max-w-3xl px-4 py-10 text-slate-600">
-        <p className="rounded-md border border-slate-200 bg-white px-4 py-3 text-[13px]">
-          {t('state.notEnabled', 'Digital Asset Manager is currently disabled.')}
-        </p>
+      <main className="vaiyu-owner min-h-screen bg-[#0B0E14] text-slate-300">
+        <div className="mx-auto max-w-3xl px-4 py-10">
+          <p className="rounded-md border border-slate-800 bg-[#0F1320] px-4 py-3 text-[13px]">
+            {t('state.notEnabled', 'Digital Asset Manager is currently disabled.')}
+          </p>
+        </div>
       </main>
     );
   }
 
   if (hotelLoading) {
     return (
-      <main className="vaiyu-owner mx-auto flex max-w-6xl items-center gap-2 px-4 py-10 text-slate-500">
-        <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> {t('state.loading', 'Loading…')}
+      <main className="vaiyu-owner min-h-screen bg-[#0B0E14] text-slate-400">
+        <div className="mx-auto flex max-w-6xl items-center gap-2 px-4 py-10">
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> {t('state.loading', 'Loading…')}
+        </div>
       </main>
     );
   }
 
   if (!hotel) {
     return (
-      <main className="vaiyu-owner mx-auto max-w-3xl px-4 py-10 text-slate-600">
-        <p className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-[13px] text-rose-700">
-          {t('state.notFound', 'Hotel not found.')}
-        </p>
+      <main className="vaiyu-owner min-h-screen bg-[#0B0E14] text-slate-300">
+        <div className="mx-auto max-w-3xl px-4 py-10">
+          <p className="rounded-md border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-[13px] text-rose-300">
+            {t('state.notFound', 'Hotel not found.')}
+          </p>
+        </div>
       </main>
     );
   }
@@ -115,12 +121,12 @@ export default function Assets() {
   const pct = summary.total === 0 ? 0 : Math.round((summary.ready / summary.total) * 100);
 
   return (
-    <main className="vaiyu-owner min-h-screen bg-slate-50">
+    <main className="vaiyu-owner min-h-screen bg-[#0B0E14] text-slate-100">
       <div className="mx-auto max-w-5xl px-3 py-5 sm:px-4 sm:py-6">
-        <div className="mb-3 flex items-center justify-between text-[11px] text-slate-500">
+        <div className="mb-3 flex items-center justify-between text-[11px] text-slate-400">
           <Link
             to={`/owner/${hotel.slug}`}
-            className="inline-flex items-center gap-1 hover:text-slate-700"
+            className="inline-flex items-center gap-1 hover:text-slate-200"
             data-testid="assets-back"
           >
             <ChevronLeft className="h-3 w-3" aria-hidden /> {t('nav.back', 'Back to dashboard')}
@@ -130,8 +136,8 @@ export default function Assets() {
             onClick={() => setShowHinglish((v) => !v)}
             className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 ${
               showHinglish
-                ? 'border-indigo-300 bg-indigo-50 text-indigo-700'
-                : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100'
+                ? 'border-indigo-500/40 bg-indigo-500/15 text-indigo-300'
+                : 'border-slate-700 bg-[#0F1320] text-slate-300 hover:bg-slate-800'
             }`}
             aria-pressed={showHinglish}
           >
@@ -140,35 +146,35 @@ export default function Assets() {
           </button>
         </div>
 
-        <header className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        <header className="overflow-hidden rounded-2xl border border-slate-800 bg-[#0F1320]">
           <div className="flex flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6 sm:py-5">
             <div className="flex min-w-0 items-center gap-3">
-              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-fuchsia-100 text-fuchsia-700">
+              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-fuchsia-500/15 text-fuchsia-300">
                 <Camera className="h-5 w-5" aria-hidden />
               </div>
               <div className="min-w-0">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-fuchsia-700">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-fuchsia-300">
                   {t('page.workspaceLabel', 'Asset Readiness Workspace')}
                 </p>
-                <h1 className="mt-0.5 truncate text-lg font-semibold text-slate-900 sm:text-xl">
+                <h1 className="mt-0.5 truncate text-lg font-semibold text-slate-100 sm:text-xl">
                   {hotel.name}
                 </h1>
               </div>
             </div>
             <ReadinessRing pct={pct} ready={summary.ready} total={summary.total} />
           </div>
-          <div className="grid grid-cols-2 gap-px bg-slate-200 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-px bg-slate-800 sm:grid-cols-4">
             {CATEGORY_ORDER.map((c) => {
               const list = byCategory.get(c) ?? [];
               const r = list.filter((x) => x.status === 'COLLECTED' || x.status === 'APPROVED').length;
               const total = list.length;
               return (
-                <div key={c} className="bg-white px-3 py-2.5 text-center">
-                  <div className="text-[9.5px] font-bold uppercase tracking-wider text-slate-500">
+                <div key={c} className="bg-[#0F1320] px-3 py-2.5 text-center">
+                  <div className="text-[9.5px] font-bold uppercase tracking-wider text-slate-400">
                     {t(`category.${c}`, DAM_CATEGORY_LABELS[c])}
                   </div>
-                  <div className="mt-0.5 text-base font-semibold text-slate-900">
-                    {r}<span className="text-slate-400">/{total}</span>
+                  <div className="mt-0.5 text-base font-semibold text-slate-100">
+                    {r}<span className="text-slate-500">/{total}</span>
                   </div>
                 </div>
               );
@@ -183,7 +189,7 @@ export default function Assets() {
 
         <section className="mt-4 space-y-3">
           {statusQ.isLoading && (
-            <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-3 text-[13px] text-slate-500">
+            <div className="flex items-center gap-2 rounded-lg border border-slate-800 bg-[#0F1320] px-4 py-3 text-[13px] text-slate-400">
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> {t('state.loadingAssets', 'Loading assets…')}
             </div>
           )}
@@ -204,8 +210,8 @@ export default function Assets() {
         </section>
 
         <footer className="mx-auto mt-6 max-w-3xl text-center">
-          <p className="text-[11px] text-slate-500">{DAM_COPY.disclaimerEN}</p>
-          <p className="mt-1 text-[10.5px] text-slate-400">{DAM_COPY.disclaimerHI}</p>
+          <p className="text-[11px] text-slate-400">{DAM_COPY.disclaimerEN}</p>
+          <p className="mt-1 text-[10.5px] text-slate-500">{DAM_COPY.disclaimerHI}</p>
         </footer>
       </div>
     </main>
@@ -233,7 +239,7 @@ function ReadinessRing({ pct, ready, total }: { pct: number; ready: number; tota
     <div className="flex items-center gap-3">
       <div className="relative h-16 w-16">
         <svg viewBox="0 0 80 80" className="h-16 w-16 -rotate-90">
-          <circle cx="40" cy="40" r={radius} className="fill-none stroke-slate-200" strokeWidth="8" />
+          <circle cx="40" cy="40" r={radius} className="fill-none stroke-slate-700" strokeWidth="8" />
           <circle
             cx="40"
             cy="40"
@@ -245,14 +251,14 @@ function ReadinessRing({ pct, ready, total }: { pct: number; ready: number; tota
             strokeLinecap="round"
           />
         </svg>
-        <div className="absolute inset-0 grid place-items-center text-[13px] font-semibold text-slate-900">
+        <div className="absolute inset-0 grid place-items-center text-[13px] font-semibold text-slate-100">
           {pct}%
         </div>
       </div>
       <div className="text-right">
-        <div className="text-[10.5px] font-bold uppercase tracking-widest text-slate-500">{t('readyLabel', 'Ready')}</div>
-        <div className="text-base font-semibold text-slate-900">
-          {ready}<span className="text-slate-400">/{total}</span>
+        <div className="text-[10.5px] font-bold uppercase tracking-widest text-slate-400">{t('readyLabel', 'Ready')}</div>
+        <div className="text-base font-semibold text-slate-100">
+          {ready}<span className="text-slate-500">/{total}</span>
         </div>
       </div>
     </div>

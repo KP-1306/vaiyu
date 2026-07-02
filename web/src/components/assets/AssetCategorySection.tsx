@@ -1,7 +1,7 @@
 // web/src/components/assets/AssetCategorySection.tsx
 //
 // Collapsible category group — collapses when all requirements collected
-// so the workspace defaults to focused on what's missing.
+// so the workspace defaults to focused on what's missing. Dark theme.
 
 import { useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
@@ -27,7 +27,7 @@ export function AssetCategorySection({ category, rows, defaultOpen = true, showH
   const missing = rows.filter((r) => r.status === 'MISSING' || r.status === 'REJECTED' || r.status === 'NEEDS_REPLACEMENT').length;
 
   return (
-    <section className="rounded-xl border border-slate-200 bg-slate-50">
+    <section className="rounded-xl border border-slate-800 bg-[#0F1320]">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -37,39 +37,39 @@ export function AssetCategorySection({ category, rows, defaultOpen = true, showH
         <div className="flex min-w-0 items-center gap-2.5">
           <AssetCategoryDot category={category} />
           <div className="min-w-0">
-            <h2 className="text-sm font-semibold text-slate-900">
+            <h2 className="text-sm font-semibold text-slate-100">
               {t(`category.${category}`, DAM_CATEGORY_LABELS[category])}
             </h2>
-            <p className="truncate text-[11.5px] text-slate-500">
+            <p className="truncate text-[11.5px] text-slate-400">
               {t(`subtitle.${category}`, DAM_CATEGORY_SUBTITLES[category])}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-3">
           <div className="text-right">
-            <div className="text-[10.5px] font-medium uppercase tracking-wider text-slate-400">{t('section.ready', 'Ready')}</div>
-            <div className="text-sm font-semibold text-slate-900">
-              {ready}<span className="text-slate-400">/{total}</span>
+            <div className="text-[10.5px] font-medium uppercase tracking-wider text-slate-500">{t('section.ready', 'Ready')}</div>
+            <div className="text-sm font-semibold text-slate-100">
+              {ready}<span className="text-slate-500">/{total}</span>
             </div>
           </div>
           {missing > 0 && (
-            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10.5px] font-semibold text-amber-700">
+            <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10.5px] font-semibold text-amber-300">
               {t('section.needAttention', '{{count}} need attention', { count: missing })}
             </span>
           )}
           {open
-            ? <ChevronDown className="h-4 w-4 text-slate-400" aria-hidden />
-            : <ChevronRight className="h-4 w-4 text-slate-400" aria-hidden />}
+            ? <ChevronDown className="h-4 w-4 text-slate-500" aria-hidden />
+            : <ChevronRight className="h-4 w-4 text-slate-500" aria-hidden />}
         </div>
       </button>
 
       {open && (
-        <div className="space-y-2 border-t border-slate-200 bg-slate-50 px-2 py-3 sm:px-3">
+        <div className="space-y-2 border-t border-slate-800 bg-black/20 px-2 py-3 sm:px-3">
           {rows.map((r) => (
             <AssetRequirementRow key={r.requirement_code} row={r} showHinglish={showHinglish} />
           ))}
           {rows.length === 0 && (
-            <p className="px-3 py-4 text-[12px] text-slate-500">{t('section.noReqs', 'No requirements in this category.')}</p>
+            <p className="px-3 py-4 text-[12px] text-slate-400">{t('section.noReqs', 'No requirements in this category.')}</p>
           )}
         </div>
       )}

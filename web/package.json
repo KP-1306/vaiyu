@@ -11,7 +11,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "build": "vite build",
     "preview": "vite preview --port 4173",
-    "postbuild": "node scripts/generate-sitemap.mjs",
+    "postbuild": "node scripts/generate-sitemap.mjs && SITES_OUT=dist node scripts/build-sites.mjs",
     "test": "vitest run",
     "test:watch": "vitest"
   },

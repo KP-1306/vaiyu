@@ -10,7 +10,7 @@
 // deltas + tenant search/sort/filter/CSV.
 import { Component, createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { Activity, AlertTriangle, Building2, CheckCircle2, CreditCard, Download, RefreshCw, ShieldCheck, Server, UserPlus } from "lucide-react";
+import { Activity, AlertTriangle, Building2, CheckCircle2, CreditCard, Download, Globe, RefreshCw, ShieldCheck, Server, UserPlus } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 
 const inr0 = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
@@ -484,6 +484,7 @@ function TenantsPanel() {
                 <th className="pb-2 font-medium cursor-pointer" onClick={() => sortBy("plan_status")}>Status{arrow("plan_status")}</th>
                 <th className="pb-2 font-medium text-right cursor-pointer" onClick={() => sortBy("revenueToday")}>Revenue today{arrow("revenueToday")}</th>
                 <th className="pb-2 font-medium cursor-pointer" onClick={() => sortBy("created_at")}>Joined{arrow("created_at")}</th>
+                <th className="pb-2 font-medium">Site</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/[0.06]">
@@ -495,8 +496,17 @@ function TenantsPanel() {
                   <td className="py-1.5 text-white/70">{h.plan_status}</td>
                   <td className="py-1.5 text-right tabular-nums text-white/80">{h.revenueToday ? inr0.format(h.revenueToday) : "—"}</td>
                   <td className="py-1.5 text-white/50">{fmtDate(h.created_at)}</td>
+                  <td className="py-1.5">
+                    <Link
+                      to={`/admin/platform/hotels/${h.slug}/site`}
+                      className="inline-flex items-center gap-1 text-amber-300/85 hover:text-amber-200"
+                      title="Seed / edit the public website for this hotel"
+                    >
+                      <Globe className="h-3.5 w-3.5" /> Edit site
+                    </Link>
+                  </td>
                 </tr>
-              )) : <tr><td colSpan={6}><Empty text="No hotels match." /></td></tr>}
+              )) : <tr><td colSpan={7}><Empty text="No hotels match." /></td></tr>}
             </tbody>
           </table>
           {nextOffset != null && (

@@ -24,3 +24,4 @@ Disallow: /requestTracker
 Allow: /
 
 Sitemap: https://vaiyu.co.in/sitemap.xml
+Sitemap: https://vaiyu.co.in/sitemap-hotels.xml

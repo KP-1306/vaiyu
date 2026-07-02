@@ -69,6 +69,7 @@ export const OWNER_NAV: OwnerNavItem[] = [
 
   // ── Setup ──
   { id: "assets", label: "Digital Assets", group: "Setup", icon: Image, keywords: "photos logo brand media", to: (s) => `${slugBase(s)}/assets` },
+  { id: "website", label: "Public Website", group: "Growth", icon: Globe, keywords: "site public page microsite luxury landing", to: (s) => `${slugBase(s)}/website` },
   { id: "import-bookings", label: "Import Bookings", group: "Setup", icon: Upload, keywords: "csv upload migrate", to: (s) => `${slugBase(s)}/import-bookings` },
   { id: "settings", label: "Settings", group: "Setup", icon: Settings, keywords: "config preferences hotel", to: (s) => `${slugBase(s)}/settings` },
   { id: "services", label: "Services & SLA", group: "Setup", icon: Building2, keywords: "department sla service request", to: () => `/owner/services` },

@@ -114,17 +114,17 @@ export function AssetFileGalleryDrawer({ row, onClose }: Props) {
 
   return (
     <div className="vaiyu-owner fixed inset-0 z-50 flex" role="dialog" aria-modal="true" aria-label={t('drawer.dialogLabel', 'Manage files')}>
-      <div className="flex-1 bg-slate-900/40" onClick={onClose} role="presentation" />
-      <aside className="flex w-full max-w-xl flex-col bg-slate-50 shadow-2xl">
-        <header className="flex items-start justify-between border-b border-slate-200 bg-white px-5 py-4">
+      <div className="flex-1 bg-black/60" onClick={onClose} role="presentation" />
+      <aside className="flex w-full max-w-xl flex-col bg-[#0B0E14] shadow-2xl">
+        <header className="flex items-start justify-between border-b border-slate-800 bg-[#0F1320] px-5 py-4">
           <div className="min-w-0">
-            <p className="text-[10.5px] font-bold uppercase tracking-widest text-indigo-600">
+            <p className="text-[10.5px] font-bold uppercase tracking-widest text-indigo-300">
               {t('drawer.kicker', 'Manage files')}
             </p>
-            <h2 className="mt-0.5 truncate text-base font-semibold text-slate-900">
+            <h2 className="mt-0.5 truncate text-base font-semibold text-slate-100">
               {row.display_name_en}
             </h2>
-            <p className="mt-1 text-[12px] text-slate-500">
+            <p className="mt-1 text-[12px] text-slate-400">
               {row.allow_multiple_files
                 ? t('drawer.subtitleMulti', 'Upload as many as you have. Drag the handle or use the arrows to reorder.')
                 : t('drawer.subtitleSingle', 'One file per requirement. Re-uploading replaces the existing file.')}
@@ -133,7 +133,7 @@ export function AssetFileGalleryDrawer({ row, onClose }: Props) {
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+            className="rounded-md p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-200"
             aria-label={t('drawer.closeAria', 'Close drawer (Esc)')}
           >
             <X className="h-4 w-4" aria-hidden />
@@ -154,7 +154,7 @@ export function AssetFileGalleryDrawer({ row, onClose }: Props) {
 
             <div>
               <div className="mb-2 flex items-center justify-between">
-                <h3 className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
+                <h3 className="text-[11px] font-bold uppercase tracking-widest text-slate-400">
                   {t('drawer.filesHeader', 'Files ({{count}})', { count: localOrder.length })}
                 </h3>
                 {reorderMutation.isPending && (
@@ -163,18 +163,18 @@ export function AssetFileGalleryDrawer({ row, onClose }: Props) {
               </div>
 
               {reorderError && (
-                <p className="mb-2 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-[11.5px] text-rose-700">
+                <p className="mb-2 rounded-md border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-[11.5px] text-rose-300">
                   {reorderError}
                 </p>
               )}
 
               {filesQ.isLoading && (
-                <div className="flex items-center gap-2 text-[12px] text-slate-500">
+                <div className="flex items-center gap-2 text-[12px] text-slate-400">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> {t('drawer.loadingFiles', 'Loading files…')}
                 </div>
               )}
               {!filesQ.isLoading && localOrder.length === 0 && (
-                <p className="rounded-md border border-dashed border-slate-200 bg-white py-6 text-center text-[12px] text-slate-500">
+                <p className="rounded-md border border-dashed border-slate-700 bg-[#0F1320] py-6 text-center text-[12px] text-slate-400">
                   {t('drawer.noFiles', 'No files yet.')}
                 </p>
               )}
@@ -202,7 +202,7 @@ export function AssetFileGalleryDrawer({ row, onClose }: Props) {
                 ))}
               </ul>
               {removeMutation.isError && (
-                <p className="mt-2 text-[11.5px] text-rose-600">
+                <p className="mt-2 text-[11.5px] text-rose-400">
                   {friendlyAssetError(
                     extractAssetErrorCode(removeMutation.error),
                     (removeMutation.error as Error)?.message ?? t('drawer.removeError', 'Could not remove file.')
@@ -269,7 +269,7 @@ function FileRow({
       onDragStart={onDragStart}
       onDragOver={onDragOver}
       onDrop={onDrop}
-      className={`rounded-lg border bg-white p-2 ${isDragging ? 'border-indigo-400 opacity-60' : 'border-slate-200'}`}
+      className={`rounded-lg border bg-[#0F1320] p-2 ${isDragging ? 'border-indigo-400 opacity-60' : 'border-slate-800'}`}
     >
       <div className="flex items-start gap-3">
         {allowReorder && (
@@ -278,17 +278,17 @@ function FileRow({
               type="button"
               onClick={onMoveUp}
               disabled={index === 0}
-              className="rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30"
+              className="rounded p-0.5 text-slate-400 hover:bg-slate-800 hover:text-slate-200 disabled:opacity-30"
               aria-label={t('drawer.moveUp', 'Move file up')}
             >
               <ChevronUp className="h-3.5 w-3.5" aria-hidden />
             </button>
-            <GripVertical className="h-3.5 w-3.5 cursor-grab text-slate-300" aria-hidden />
+            <GripVertical className="h-3.5 w-3.5 cursor-grab text-slate-500" aria-hidden />
             <button
               type="button"
               onClick={onMoveDown}
               disabled={index === total - 1}
-              className="rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30"
+              className="rounded p-0.5 text-slate-400 hover:bg-slate-800 hover:text-slate-200 disabled:opacity-30"
               aria-label={t('drawer.moveDown', 'Move file down')}
             >
               <ChevronDown className="h-3.5 w-3.5" aria-hidden />
@@ -297,10 +297,10 @@ function FileRow({
         )}
         <FilePreview file={file} />
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[12px] font-medium text-slate-700">
+          <div className="truncate text-[12px] font-medium text-slate-200">
             {file.storage_path.split('/').pop()}
           </div>
-          <div className="text-[10.5px] text-slate-500">
+          <div className="text-[10.5px] text-slate-400">
             {file.mime_type} · {Math.round(file.file_size_bytes / 1024)} KB
             {file.width_px && file.height_px ? ` · ${file.width_px}×${file.height_px}` : ''}
           </div>
@@ -308,7 +308,7 @@ function FileRow({
         <button
           type="button"
           onClick={onRemove}
-          className="rounded-md p-1.5 text-rose-500 hover:bg-rose-50"
+          className="rounded-md p-1.5 text-rose-400 hover:bg-rose-500/10"
           aria-label={t('drawer.removeFile', 'Remove file')}
         >
           <Trash2 className="h-3.5 w-3.5" aria-hidden />
@@ -326,14 +326,14 @@ function FileRow({
           maxLength={280}
           placeholder={t('drawer.altTextPlaceholder', "Describe what's in this image (helps SEO + accessibility)")}
           onChange={(e) => { setAltDraft(e.target.value); setAltDirty(true); }}
-          className="flex-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[12px] text-slate-800 focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+          className="flex-1 rounded-md border border-slate-700 bg-slate-950/60 px-2 py-1 text-[12px] text-slate-100 placeholder:text-slate-500 focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400"
         />
         {altDirty && (
           <button
             type="button"
             onClick={saveAlt}
             disabled={altSaving}
-            className="inline-flex items-center gap-1 rounded-md border border-indigo-300 bg-indigo-50 px-2 py-1 text-[11px] font-medium text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
+            className="inline-flex items-center gap-1 rounded-md border border-indigo-500/40 bg-indigo-500/15 px-2 py-1 text-[11px] font-medium text-indigo-300 hover:bg-indigo-500/25 disabled:opacity-50"
           >
             {altSaving ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden /> : <Check className="h-3 w-3" aria-hidden />}
             {t('drawer.save', 'Save')}
@@ -341,7 +341,7 @@ function FileRow({
         )}
       </div>
       {altError && (
-        <p className="mt-1 text-[10.5px] text-rose-600">{altError}</p>
+        <p className="mt-1 text-[10.5px] text-rose-400">{altError}</p>
       )}
     </li>
   );
@@ -365,14 +365,14 @@ function FilePreview({ file }: { file: AssetFileRow }) {
 
   if (!isImage) {
     return (
-      <div className="grid h-12 w-12 shrink-0 place-items-center rounded-md border border-slate-200 bg-slate-50 text-slate-400">
+      <div className="grid h-12 w-12 shrink-0 place-items-center rounded-md border border-slate-800 bg-slate-900/60 text-slate-500">
         <FileText className="h-5 w-5" aria-hidden />
       </div>
     );
   }
   if (!url) {
     return (
-      <div className="grid h-12 w-12 shrink-0 place-items-center rounded-md border border-slate-200 bg-slate-50 text-slate-400">
+      <div className="grid h-12 w-12 shrink-0 place-items-center rounded-md border border-slate-800 bg-slate-900/60 text-slate-500">
         <FileImage className="h-5 w-5" aria-hidden />
       </div>
     );
@@ -381,7 +381,7 @@ function FilePreview({ file }: { file: AssetFileRow }) {
     <img
       src={url}
       alt={file.alt_text ?? ''}
-      className="h-12 w-12 shrink-0 rounded-md border border-slate-200 object-cover"
+      className="h-12 w-12 shrink-0 rounded-md border border-slate-800 object-cover"
       loading="lazy"
     />
   );

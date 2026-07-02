@@ -1,6 +1,6 @@
 // web/src/components/assets/AssetUploadSlot.tsx
 //
-// Light-theme upload widget for the Digital Asset Manager. Routes to the
+// Dark-theme upload widget for the Digital Asset Manager. Routes to the
 // correct bucket based on requirement storage_zone (public hotel-assets vs
 // private hotel-asset-vault). Client-side validates MIME + size + PII regex
 // before hitting the server.
@@ -93,10 +93,10 @@ export function AssetUploadSlot({
     : 'rounded-xl border border-dashed px-6 py-8 text-center transition-colors';
 
   const stateCls = uploading
-    ? 'border-indigo-300 bg-indigo-50/40 cursor-wait'
+    ? 'border-indigo-500/40 bg-indigo-500/10 cursor-wait'
     : dragActive
-      ? 'border-indigo-400 bg-indigo-50'
-      : 'border-slate-300 bg-white hover:border-indigo-300 hover:bg-indigo-50/30 cursor-pointer';
+      ? 'border-indigo-400 bg-indigo-500/15'
+      : 'border-slate-700 bg-slate-950/40 hover:border-indigo-500/50 hover:bg-indigo-500/10 cursor-pointer';
 
   return (
     <div className="space-y-2">
@@ -126,32 +126,32 @@ export function AssetUploadSlot({
           onChange={(e) => void handleFiles(e.target.files)}
         />
         {uploading ? (
-          <div className="flex items-center justify-center gap-2 text-[12px] font-medium text-indigo-700">
+          <div className="flex items-center justify-center gap-2 text-[12px] font-medium text-indigo-300">
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
             {t('upload.uploading', 'Uploading…')}
           </div>
         ) : (
-          <div className="flex items-center justify-center gap-2 text-[12px] font-medium text-slate-600">
-            <Upload className="h-4 w-4 text-indigo-500" aria-hidden />
+          <div className="flex items-center justify-center gap-2 text-[12px] font-medium text-slate-300">
+            <Upload className="h-4 w-4 text-indigo-400" aria-hidden />
             <span>
               {allowMultiple
                 ? t('upload.dropFiles', 'Drop files or click to upload')
                 : t('upload.dropFile', 'Drop a file or click to upload')}
-              <span className="ml-1 text-slate-400">· {t('upload.specs', 'JPG / PNG / WEBP / PDF · ≤10 MB')}</span>
+              <span className="ml-1 text-slate-500">· {t('upload.specs', 'JPG / PNG / WEBP / PDF · ≤10 MB')}</span>
             </span>
           </div>
         )}
       </div>
 
       {error && (
-        <div className="flex items-start gap-1.5 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-[11.5px] text-rose-700">
+        <div className="flex items-start gap-1.5 rounded-md border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-[11.5px] text-rose-300">
           <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
           <span>{error}</span>
         </div>
       )}
 
       {zone === 'PRIVATE_VAULT' && !uploading && !error && (
-        <div className="flex items-center gap-1.5 text-[10.5px] text-slate-500">
+        <div className="flex items-center gap-1.5 text-[10.5px] text-slate-400">
           <FileImage className="h-3 w-3" aria-hidden />
           {t('upload.privateNote', 'Private vault — viewable via signed link only.')}
         </div>
